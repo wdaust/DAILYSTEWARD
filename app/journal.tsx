@@ -43,7 +43,7 @@ export default function JournalScreen() {
 
   const isLoading = entriesLoading || foldersLoading;
 
-  const handleSelectEntry = (entry: JournalEntry) => {
+  const handleSelectEntry = (entry: JournalEntryType) => {
     if (!entry) return;
     setSelectedEntry(entry);
     setShowEntryForm(true);
@@ -57,7 +57,7 @@ export default function JournalScreen() {
   const handleSaveEntry = async (entryData: {
     title: string;
     content: string;
-    scriptureTags: { id: string; reference: string }[];
+    tags: { id: string; name: string }[];
     folder?: JournalFolder | null;
   }) => {
     if (!entryData || !entryData.title || !entryData.content) return;
@@ -68,9 +68,9 @@ export default function JournalScreen() {
         title: entryData.title,
         content: entryData.content,
         preview: entryData.content.substring(0, 100) + "...",
-        scriptures: entryData.scriptureTags.map((tag) => tag.reference),
+        scriptures: entryData.tags.map((tag) => tag.name),
         folder: entryData.folder,
-        tags: entryData.scriptureTags,
+        tags: entryData.tags,
       };
 
       await updateEntry(selectedEntry.id, updates);
@@ -81,9 +81,9 @@ export default function JournalScreen() {
         title: entryData.title,
         content: entryData.content,
         preview: entryData.content.substring(0, 100) + "...",
-        scriptures: entryData.scriptureTags.map((tag) => tag.reference),
+        scriptures: entryData.tags.map((tag) => tag.name),
         folder: entryData.folder,
-        tags: entryData.scriptureTags,
+        tags: entryData.tags,
       };
 
       await addEntry(newEntry);
@@ -144,11 +144,6 @@ export default function JournalScreen() {
           title: "Spiritual Journal",
           headerStyle: { backgroundColor: "#ffffff" },
           headerTitleStyle: { color: "#7E57C2", fontWeight: "bold" },
-          headerRight: () => (
-            <TouchableOpacity onPress={handleCreateEntry} className="mr-4">
-              <Plus size={24} color="#7E57C2" />
-            </TouchableOpacity>
-          ),
         }}
       />
 
@@ -168,11 +163,11 @@ export default function JournalScreen() {
                     selectedEntry.content ||
                     selectedEntry.preview.replace("...", ""),
                   date: selectedEntry.date,
-                  scriptureTags:
+                  tags:
                     selectedEntry.tags ||
                     selectedEntry.scriptures.map((scripture) => ({
                       id: scripture,
-                      reference: scripture,
+                      name: scripture,
                     })),
                   folder: selectedEntry.folder,
                 }
@@ -193,12 +188,12 @@ export default function JournalScreen() {
             folders={folders}
           />
 
-          {/* Floating action button */}
+          {/* Add Journal Entry Button */}
           <TouchableOpacity
             onPress={handleCreateEntry}
-            className="absolute bottom-6 right-6 bg-primary-600 w-14 h-14 rounded-full items-center justify-center shadow-lg"
+            className="bg-primary-600 py-4 rounded-xl items-center mt-4 mx-4 mb-4"
           >
-            <Plus size={24} color="#ffffff" />
+            <Text className="text-white font-medium">Add Journal Entry</Text>
           </TouchableOpacity>
         </View>
       )}

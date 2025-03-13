@@ -435,7 +435,7 @@ export default function BibleReadingScreen() {
       >
         {readingHistoryLoading ? (
           <View className="flex-1 justify-center items-center py-10">
-            <ActivityIndicator size="large" color="#4F46E5" />
+            <ActivityIndicator size="large" color="#7E57C2" />
             <Text className="mt-4 text-gray-600">
               Loading your reading history...
             </Text>
@@ -473,7 +473,7 @@ export default function BibleReadingScreen() {
                 </Text>
                 <View className="flex-row flex-wrap mb-4">
                   <TouchableOpacity
-                    className={`mr-2 mb-2 px-4 py-2 rounded-lg h-10 items-center justify-center ${trackingMethod === "chapter" ? "bg-blue-600" : "bg-gray-200"}`}
+                    className={`mr-2 mb-2 px-4 py-2 rounded-lg h-10 items-center justify-center ${trackingMethod === "chapter" ? "bg-primary-600" : "bg-gray-200"}`}
                     onPress={() => setTrackingMethod("chapter")}
                   >
                     <Text
@@ -487,7 +487,7 @@ export default function BibleReadingScreen() {
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    className={`mr-2 mb-2 px-4 py-2 rounded-lg h-10 items-center justify-center ${trackingMethod === "page" ? "bg-blue-600" : "bg-gray-200"}`}
+                    className={`mr-2 mb-2 px-4 py-2 rounded-lg h-10 items-center justify-center ${trackingMethod === "page" ? "bg-primary-600" : "bg-gray-200"}`}
                     onPress={() => setTrackingMethod("page")}
                   >
                     <Text
@@ -501,7 +501,7 @@ export default function BibleReadingScreen() {
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    className={`mr-2 mb-2 px-4 py-2 rounded-lg h-10 items-center justify-center ${trackingMethod === "verse" ? "bg-blue-600" : "bg-gray-200"}`}
+                    className={`mr-2 mb-2 px-4 py-2 rounded-lg h-10 items-center justify-center ${trackingMethod === "verse" ? "bg-primary-600" : "bg-gray-200"}`}
                     onPress={() => setTrackingMethod("verse")}
                   >
                     <Text
@@ -515,7 +515,7 @@ export default function BibleReadingScreen() {
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    className={`px-4 py-2 rounded-lg h-10 items-center justify-center ${trackingMethod === "timer" ? "bg-blue-600" : "bg-gray-200"}`}
+                    className={`px-4 py-2 rounded-lg h-10 items-center justify-center ${trackingMethod === "timer" ? "bg-primary-600" : "bg-gray-200"}`}
                     onPress={() => setTrackingMethod("timer")}
                   >
                     <Text
@@ -572,7 +572,7 @@ export default function BibleReadingScreen() {
                         </Text>
                         <TouchableOpacity
                           onPress={() => setChapterCount(chapterCount + 1)}
-                          className="bg-blue-500 w-10 h-10 rounded-full items-center justify-center"
+                          className="bg-primary-500 w-10 h-10 rounded-full items-center justify-center"
                         >
                           <Plus size={20} color="#ffffff" />
                         </TouchableOpacity>
@@ -597,7 +597,7 @@ export default function BibleReadingScreen() {
                         onPress={() =>
                           setTrackingMultiplePages(!trackingMultiplePages)
                         }
-                        className={`w-12 h-6 rounded-full ${trackingMultiplePages ? "bg-blue-500" : "bg-gray-300"} items-center justify-center`}
+                        className={`w-12 h-6 rounded-full ${trackingMultiplePages ? "bg-primary-500" : "bg-gray-300"} items-center justify-center`}
                       >
                         <View
                           className={`w-5 h-5 rounded-full bg-white absolute ${trackingMultiplePages ? "right-1" : "left-1"}`}
@@ -699,8 +699,8 @@ export default function BibleReadingScreen() {
                 {trackingMethod === "timer" && (
                   <View className="mb-4">
                     <View className="items-center mb-4">
-                      <View className="w-32 h-32 rounded-full bg-blue-100 items-center justify-center mb-2">
-                        <Text className="text-3xl font-bold text-blue-700">
+                      <View className="w-32 h-32 rounded-full bg-primary-100 items-center justify-center mb-2">
+                        <Text className="text-3xl font-bold text-primary-700">
                           {formatTime(timeRemaining)}
                         </Text>
                       </View>
@@ -708,7 +708,7 @@ export default function BibleReadingScreen() {
                         {!timerRunning && !timerCompleted && (
                           <TouchableOpacity
                             onPress={startTimer}
-                            className="bg-blue-600 w-12 h-12 rounded-full items-center justify-center mr-2"
+                            className="bg-primary-600 w-12 h-12 rounded-full items-center justify-center mr-2"
                           >
                             <Play size={24} color="#ffffff" />
                           </TouchableOpacity>
@@ -750,7 +750,7 @@ export default function BibleReadingScreen() {
                         </Text>
                         <TouchableOpacity
                           onPress={() => updateTimerDuration(timerDuration + 5)}
-                          className="bg-blue-500 w-10 h-10 rounded-full items-center justify-center"
+                          className="bg-primary-500 w-10 h-10 rounded-full items-center justify-center"
                         >
                           <Plus size={20} color="#ffffff" />
                         </TouchableOpacity>
@@ -766,7 +766,7 @@ export default function BibleReadingScreen() {
                       </View>
                       <TouchableOpacity
                         onPress={() => setPlayAlarmSound(!playAlarmSound)}
-                        className={`w-12 h-6 rounded-full ${playAlarmSound ? "bg-blue-500" : "bg-gray-300"} items-center justify-center`}
+                        className={`w-12 h-6 rounded-full ${playAlarmSound ? "bg-primary-500" : "bg-gray-300"} items-center justify-center`}
                       >
                         <View
                           className={`w-5 h-5 rounded-full bg-white absolute ${playAlarmSound ? "right-1" : "left-1"}`}
@@ -777,7 +777,7 @@ export default function BibleReadingScreen() {
                 )}
 
                 <TouchableOpacity
-                  className={`py-3 rounded-lg items-center ${timerCompleted ? "bg-green-500" : "bg-blue-600"}`}
+                  className={`py-3 rounded-lg items-center ${timerCompleted ? "bg-green-500" : "bg-primary-600"}`}
                   onPress={() => {
                     if (trackingMethod === "timer") {
                       if (timerCompleted) {
@@ -833,8 +833,8 @@ export default function BibleReadingScreen() {
                 <View className="bg-white rounded-xl w-11/12 max-h-[80%] p-4">
                   <View className="flex-row justify-between items-center mb-4">
                     <View className="flex-row items-center">
-                      <BookText size={24} color="#4F46E5" />
-                      <Text className="text-xl font-bold ml-2 text-indigo-800">
+                      <BookText size={24} color="#7E57C2" />
+                      <Text className="text-xl font-bold ml-2 text-primary-800">
                         Record Spiritual Gems
                       </Text>
                     </View>
@@ -858,23 +858,23 @@ export default function BibleReadingScreen() {
                       />
                     </View>
 
-                    <View className="mb-4 bg-indigo-50 p-3 rounded-lg">
+                    <View className="mb-4 bg-primary-50 p-3 rounded-lg">
                       <View className="flex-row justify-between items-center mb-1">
-                        <Text className="text-indigo-700 font-medium">
+                        <Text className="text-primary-700 font-medium">
                           Spiritual Gem:
                         </Text>
                         <TouchableOpacity
                           onPress={() =>
                             setShowPromptSettings(!showPromptSettings)
                           }
-                          className="bg-indigo-100 px-2 py-1 rounded-md"
+                          className="bg-primary-100 px-2 py-1 rounded-md"
                         >
-                          <Text className="text-indigo-700 text-xs">
+                          <Text className="text-primary-700 text-xs">
                             Manage Prompts
                           </Text>
                         </TouchableOpacity>
                       </View>
-                      <Text className="text-indigo-600">
+                      <Text className="text-primary-600">
                         {getRandomPrompt()}
                       </Text>
                     </View>
@@ -893,7 +893,7 @@ export default function BibleReadingScreen() {
                             onChangeText={setNewPrompt}
                           />
                           <TouchableOpacity
-                            className="bg-indigo-600 px-3 items-center justify-center rounded-r-md"
+                            className="bg-primary-600 px-3 items-center justify-center rounded-r-md"
                             onPress={addCustomPrompt}
                           >
                             <Text className="text-white">Add</Text>
@@ -938,11 +938,11 @@ export default function BibleReadingScreen() {
                       />
                     </View>
 
-                    <View className="mb-4 bg-blue-50 p-3 rounded-lg">
+                    <View className="mb-4 bg-primary-50 p-3 rounded-lg">
                       <Text className="text-sm font-medium mb-1 text-gray-700">
                         Today's Reading
                       </Text>
-                      <Text className="text-blue-700">{currentReading}</Text>
+                      <Text className="text-primary-700">{currentReading}</Text>
                     </View>
                   </ScrollView>
 
@@ -954,7 +954,7 @@ export default function BibleReadingScreen() {
                       <Text className="text-gray-700">Skip</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      className="bg-indigo-600 px-4 py-2 rounded-lg flex-row items-center"
+                      className="bg-primary-600 px-4 py-2 rounded-lg flex-row items-center"
                       onPress={handleSaveJournal}
                     >
                       <Save size={18} color="#FFFFFF" />
@@ -987,7 +987,7 @@ export default function BibleReadingScreen() {
                   {/* View Mode Selector */}
                   <View className="flex-row mb-4">
                     <TouchableOpacity
-                      className={`flex-1 py-2 mr-1 rounded-md ${historyViewMode === "week" ? "bg-blue-600" : "bg-gray-200"}`}
+                      className={`flex-1 py-2 mr-1 rounded-md ${historyViewMode === "week" ? "bg-primary-600" : "bg-gray-200"}`}
                       onPress={() => setHistoryViewMode("week")}
                     >
                       <Text
@@ -997,7 +997,7 @@ export default function BibleReadingScreen() {
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      className={`flex-1 py-2 mx-1 rounded-md ${historyViewMode === "month" ? "bg-blue-600" : "bg-gray-200"}`}
+                      className={`flex-1 py-2 mx-1 rounded-md ${historyViewMode === "month" ? "bg-primary-600" : "bg-gray-200"}`}
                       onPress={() => setHistoryViewMode("month")}
                     >
                       <Text
@@ -1007,7 +1007,7 @@ export default function BibleReadingScreen() {
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      className={`flex-1 py-2 ml-1 rounded-md ${historyViewMode === "year" ? "bg-blue-600" : "bg-gray-200"}`}
+                      className={`flex-1 py-2 ml-1 rounded-md ${historyViewMode === "year" ? "bg-primary-600" : "bg-gray-200"}`}
                       onPress={() => setHistoryViewMode("year")}
                     >
                       <Text

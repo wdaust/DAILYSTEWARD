@@ -19,9 +19,9 @@ import {
 } from "lucide-react-native";
 import { JournalFolder } from "./JournalFolderSelector";
 
-interface ScriptureTag {
+interface JournalTag {
   id: string;
-  reference: string;
+  name: string;
 }
 
 interface JournalEntry {
@@ -31,7 +31,7 @@ interface JournalEntry {
   preview: string;
   scriptures: string[];
   folder?: JournalFolder | null;
-  tags?: ScriptureTag[];
+  tags?: JournalTag[];
 }
 
 interface JournalListProps {
@@ -73,8 +73,8 @@ const JournalList = ({
         (entry) =>
           entry.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
           entry.preview.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          entry.scriptures.some((scripture) =>
-            scripture.toLowerCase().includes(searchQuery.toLowerCase()),
+          entry.tags?.some((tag) =>
+            tag.name.toLowerCase().includes(searchQuery.toLowerCase()),
           ),
       );
     }
@@ -89,7 +89,7 @@ const JournalList = ({
     // Apply tag filter
     if (selectedTag) {
       filtered = filtered.filter((entry) =>
-        entry.tags?.some((tag) => tag.reference === selectedTag),
+        entry.tags?.some((tag) => tag.name === selectedTag),
       );
     }
 
@@ -146,9 +146,7 @@ const JournalList = ({
               className="bg-primary-50 rounded-full px-3 py-1 mr-2 mb-1 flex-row items-center"
             >
               <Tag size={12} color="#7E57C2" />
-              <Text className="text-primary-700 text-xs ml-1">
-                {tag.reference}
-              </Text>
+              <Text className="text-primary-700 text-xs ml-1">{tag.name}</Text>
             </View>
           ))}
         </View>
@@ -246,9 +244,7 @@ const JournalList = ({
             </ScrollView>
 
             {/* Tag filters */}
-            <Text className="text-sm text-neutral-600 mb-1">
-              Scripture Tags:
-            </Text>
+            <Text className="text-sm text-neutral-600 mb-1">Tags:</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -257,23 +253,19 @@ const JournalList = ({
               {allTags.map((tag) => (
                 <TouchableOpacity
                   key={tag.id}
-                  className={`rounded-full px-3 py-1 mr-2 flex-row items-center ${selectedTag === tag.reference ? "bg-primary-600" : "bg-primary-50"}`}
+                  className={`rounded-full px-3 py-1 mr-2 flex-row items-center ${selectedTag === tag.name ? "bg-primary-600" : "bg-primary-50"}`}
                   onPress={() =>
-                    setSelectedTag(
-                      selectedTag === tag.reference ? null : tag.reference,
-                    )
+                    setSelectedTag(selectedTag === tag.name ? null : tag.name)
                   }
                 >
                   <Tag
                     size={14}
-                    color={
-                      selectedTag === tag.reference ? "#ffffff" : "#7E57C2"
-                    }
+                    color={selectedTag === tag.name ? "#ffffff" : "#7E57C2"}
                   />
                   <Text
-                    className={`ml-1 text-sm ${selectedTag === tag.reference ? "text-white" : "text-primary-700"}`}
+                    className={`ml-1 text-sm ${selectedTag === tag.name ? "text-white" : "text-primary-700"}`}
                   >
-                    {tag.reference}
+                    {tag.name}
                   </Text>
                 </TouchableOpacity>
               ))}

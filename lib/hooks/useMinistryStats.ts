@@ -5,9 +5,8 @@ export interface MinistryStats {
   user_id: string;
   date: string;
   hours: number;
-  placements: number;
-  returnVisits: number;
   type: "daily" | "weekly" | "monthly";
+  ministryType?: string; // Track which type of ministry was done
 }
 
 export function useMinistryStats() {

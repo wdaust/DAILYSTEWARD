@@ -5,6 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import "react-native-reanimated";
+import "react-native-webview";
 import "../global.css";
 import { Platform, View, ActivityIndicator } from "react-native";
 import { AuthProvider, useAuth } from "../lib/auth";

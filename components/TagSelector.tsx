@@ -4,7 +4,7 @@ import { Tag, X, Plus } from "lucide-react-native";
 
 interface JournalTag {
   id: string;
-  reference: string;
+  name: string;
 }
 
 interface TagSelectorProps {
@@ -24,7 +24,7 @@ const TagSelector = ({ selectedTags = [], onTagsChange }: TagSelectorProps) => {
     if (newTag.trim()) {
       const newTagObj = {
         id: Date.now().toString(),
-        reference: newTag.trim(),
+        name: newTag.trim(),
       };
       onTagsChange([...selectedTags, newTagObj]);
       setNewTag("");
@@ -44,7 +44,7 @@ const TagSelector = ({ selectedTags = [], onTagsChange }: TagSelectorProps) => {
             className="flex-row items-center bg-primary-50 rounded-full px-3 py-1 mr-2 mb-2"
           >
             <Tag size={14} color="#4f46e5" />
-            <Text className="mx-1 text-primary-700">{tag.reference}</Text>
+            <Text className="mx-1 text-primary-700">{tag.name}</Text>
             <TouchableOpacity onPress={() => removeTag(tag.id)}>
               <X size={14} color="#4f46e5" />
             </TouchableOpacity>

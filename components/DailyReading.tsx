@@ -69,7 +69,7 @@ const DailyReading = ({
       {/* Scripture reference */}
       <View className="flex-row items-center mb-3">
         <Book size={20} color="#6B7280" className="mr-2" />
-        <Text className="text-base font-semibold text-indigo-700">
+        <Text className="text-base font-semibold text-primary-700">
           {scriptureReference}
         </Text>
       </View>
@@ -91,7 +91,7 @@ const DailyReading = ({
       {/* Mark as complete button */}
       {!completed && (
         <TouchableOpacity
-          className="mt-4 bg-indigo-600 py-3 rounded-lg items-center"
+          className="mt-4 bg-primary-600 py-3 rounded-lg items-center"
           onPress={handleComplete}
         >
           <Text className="text-white font-medium">Mark as Complete</Text>

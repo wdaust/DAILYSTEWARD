@@ -34,14 +34,19 @@ const BottomNavigation = ({ activeRoute = "/" }: BottomNavigationProps) => {
       route: "/bible-reading",
     },
     {
-      name: "Habits",
+      name: "Tracker",
       icon: Target,
-      route: "/habits",
+      route: "/spiritual-tracker",
     },
     {
-      name: "Goals",
-      icon: Flag,
-      route: "/goals",
+      name: "Journal",
+      icon: BookText,
+      route: "/journal",
+    },
+    {
+      name: "Ministry",
+      icon: BarChart2,
+      route: "/ministry-time",
     },
     {
       name: "Settings",

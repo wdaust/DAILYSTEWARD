@@ -17,13 +17,12 @@ import {
   Folder,
   HelpCircle,
 } from "lucide-react-native";
-import RichTextEditor from "./RichTextEditor";
-import ScriptureTagSelector from "./ScriptureTagSelector";
+import TagSelector from "./TagSelector";
 import JournalFolderSelector, { JournalFolder } from "./JournalFolderSelector";
 
-interface ScriptureTag {
+interface JournalTag {
   id: string;
-  reference: string;
+  name: string;
 }
 
 interface JournalEntryProps {
@@ -32,13 +31,13 @@ interface JournalEntryProps {
     title: string;
     content: string;
     date: string;
-    scriptureTags: ScriptureTag[];
+    tags: JournalTag[];
     folder?: JournalFolder | null;
   };
   onSave?: (entry: {
     title: string;
     content: string;
-    scriptureTags: ScriptureTag[];
+    tags: JournalTag[];
     folder?: JournalFolder | null;
   }) => void;
   onClose?: () => void;
@@ -54,7 +53,7 @@ const JournalEntry = ({
     title: "",
     content: "",
     date: new Date().toISOString().split("T")[0],
-    scriptureTags: [],
+    tags: [],
     folder: null,
   },
   onSave = () => {},
@@ -71,9 +70,7 @@ const JournalEntry = ({
 }: JournalEntryProps) => {
   const [title, setTitle] = useState(entry.title);
   const [content, setContent] = useState(entry.content);
-  const [scriptureTags, setScriptureTags] = useState<ScriptureTag[]>(
-    entry.scriptureTags,
-  );
+  const [tags, setTags] = useState<JournalTag[]>(entry.tags);
   const [selectedFolder, setSelectedFolder] = useState<JournalFolder | null>(
     entry.folder || null,
   );
@@ -90,7 +87,7 @@ const JournalEntry = ({
     onSave({
       title,
       content,
-      scriptureTags,
+      tags,
       folder: selectedFolder,
     });
   };
@@ -98,14 +95,12 @@ const JournalEntry = ({
   const showFormattingHelp = () => {
     Alert.alert(
       "Formatting Help",
-      "Use the toolbar buttons to format your text:\n\n" +
-        "• Bold: Makes text bold\n" +
-        "• Italic: Makes text italic\n" +
-        "• Underline: Underlines text\n" +
-        "• H1/H2: Creates headings\n" +
-        "• List: Creates bullet points\n" +
-        "• Numbered List: Creates numbered lists\n" +
-        "• Quote: Creates a quote block",
+      "You can use basic formatting in your journal entries:\n\n" +
+        "• Use *asterisks* for emphasis\n" +
+        "• Use **double asterisks** for strong emphasis\n" +
+        "• Use - or * at the beginning of a line for bullet points\n" +
+        "• Use > at the beginning of a line for quotes\n" +
+        "• Use # for headings (more # for smaller headings)\n",
     );
   };
 
@@ -116,20 +111,6 @@ const JournalEntry = ({
       : `${promptText}:\n`;
     setContent(newContent);
   };
-
-  // Suggested tags based on content
-  const suggestedTags = [
-    { id: "s1", reference: "Matthew 5:3-12" },
-    { id: "s2", reference: "John 3:16" },
-    { id: "s3", reference: "Psalm 23" },
-    { id: "s4", reference: "Romans 12:1-2" },
-    { id: "s5", reference: "Philippians 4:6-7" },
-    { id: "s6", reference: "Proverbs 3:5-6" },
-    { id: "s7", reference: "Isaiah 40:31" },
-    { id: "s8", reference: "Jeremiah 29:11" },
-    { id: "s9", reference: "1 Corinthians 13:4-7" },
-    { id: "s10", reference: "Galatians 5:22-23" },
-  ];
 
   return (
     <KeyboardAvoidingView
@@ -145,9 +126,7 @@ const JournalEntry = ({
           <Text className="text-lg font-bold text-center flex-1">
             {entry.id === "1" ? "New Journal Entry" : "Edit Journal Entry"}
           </Text>
-          <TouchableOpacity onPress={handleSave} className="p-2">
-            <Save size={24} color="#4f46e5" />
-          </TouchableOpacity>
+          <View className="w-10" />
         </View>
 
         {/* Date display */}
@@ -181,14 +160,10 @@ const JournalEntry = ({
           />
         </View>
 
-        {/* Scripture Tags */}
-        <ScriptureTagSelector
-          selectedTags={scriptureTags}
-          onTagsChange={setScriptureTags}
-          suggestedTags={suggestedTags}
-        />
+        {/* Tags */}
+        <TagSelector selectedTags={tags} onTagsChange={setTags} />
 
-        {/* Rich Text Editor */}
+        {/* Simple Text Editor */}
         <View className="mb-6">
           <View className="flex-row justify-between items-center mb-1">
             <Text className="text-sm font-medium text-gray-700">
@@ -198,12 +173,18 @@ const JournalEntry = ({
               <HelpCircle size={16} color="#6b7280" />
             </TouchableOpacity>
           </View>
-          <RichTextEditor
-            value={content}
-            onChangeText={setContent}
-            placeholder="Write your spiritual reflection here..."
-            minHeight={200}
-          />
+          <View className="bg-white border border-gray-300 rounded-lg">
+            <TextInput
+              className="p-3"
+              multiline
+              numberOfLines={10}
+              textAlignVertical="top"
+              placeholder="Write your spiritual reflection here..."
+              value={content}
+              onChangeText={setContent}
+              style={{ minHeight: 200 }}
+            />
+          </View>
         </View>
 
         {/* Spiritual prompts */}
@@ -239,6 +220,16 @@ const JournalEntry = ({
             </Text>
           </TouchableOpacity>
         </View>
+
+        {/* Save Button */}
+        <TouchableOpacity
+          className="bg-primary-600 py-4 rounded-xl items-center mb-6"
+          onPress={handleSave}
+        >
+          <Text className="text-white font-medium text-lg">
+            Save Journal Entry
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );

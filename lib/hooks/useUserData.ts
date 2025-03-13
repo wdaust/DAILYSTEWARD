@@ -1,13 +1,27 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 import { useAuth } from "../auth";
+import { Platform } from "react-native";
+
+interface DataMappers<T, DBType = any> {
+  fromDB?: (dbItem: DBType) => T;
+  toDB?: (item: Partial<T>) => Partial<DBType>;
+}
 
 // Generic hook for fetching user-specific data
-export function useUserData<T>(tableName: string, defaultValue: T[]) {
+export function useUserData<T, DBType = any>(
+  tableName: string,
+  defaultValue: T[],
+  mappers: DataMappers<T, DBType> = {},
+) {
   const [data, setData] = useState<T[]>(defaultValue);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const { user } = useAuth();
+
+  // Default mappers if none provided
+  const fromDB = mappers.fromDB || ((item: any) => item as T);
+  const toDB = mappers.toDB || ((item: Partial<T>) => item as Partial<DBType>);
 
   useEffect(() => {
     // Don't fetch data if user is not authenticated
@@ -29,7 +43,9 @@ export function useUserData<T>(tableName: string, defaultValue: T[]) {
 
         if (error) throw error;
 
-        setData(userData || []);
+        // Map database items to our interface
+        const mappedData = userData ? userData.map(fromDB) : [];
+        setData(mappedData);
       } catch (err) {
         console.error(`Error fetching ${tableName}:`, err);
         setError(err instanceof Error ? err : new Error(String(err)));
@@ -40,6 +56,24 @@ export function useUserData<T>(tableName: string, defaultValue: T[]) {
       }
     };
 
+    // Try to load from localStorage first for backward compatibility
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      try {
+        const savedData = localStorage.getItem(tableName);
+        if (savedData) {
+          const parsedData = JSON.parse(savedData);
+          if (Array.isArray(parsedData) && parsedData.length > 0) {
+            setData(parsedData);
+          }
+        }
+      } catch (e) {
+        console.error(
+          `Failed to parse saved ${tableName} from localStorage`,
+          e,
+        );
+      }
+    }
+
     fetchData();
   }, [tableName, user]);
 
@@ -48,16 +82,37 @@ export function useUserData<T>(tableName: string, defaultValue: T[]) {
     if (!user) return { error: new Error("User not authenticated") };
 
     try {
+      // Map the data to database format
+      const dbData = toDB(newData as Partial<T>);
+
       const { data: insertedData, error } = await supabase
         .from(tableName)
-        .insert([{ ...newData, user_id: user.id }])
+        .insert([{ ...dbData, user_id: user.id }])
         .select();
 
       if (error) throw error;
 
+      // Map the inserted data back to our interface
+      const mappedData = insertedData ? insertedData.map(fromDB) : [];
+
       // Update local state with the new data
-      setData((prev) => [...prev, ...(insertedData as T[])]);
-      return { data: insertedData, error: null };
+      setData((prev) => [...prev, ...mappedData]);
+
+      // For backward compatibility, also update localStorage
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        try {
+          const updatedData = [...data, ...mappedData];
+          localStorage.setItem(tableName, JSON.stringify(updatedData));
+
+          // Trigger event for components using localStorage
+          const event = new Event(`${tableName}Updated`);
+          window.dispatchEvent(event);
+        } catch (e) {
+          console.error(`Failed to update ${tableName} in localStorage`, e);
+        }
+      }
+
+      return { data: mappedData, error: null };
     } catch (err) {
       console.error(`Error adding to ${tableName}:`, err);
       return { error: err instanceof Error ? err : new Error(String(err)) };
@@ -69,14 +124,20 @@ export function useUserData<T>(tableName: string, defaultValue: T[]) {
     if (!user) return { error: new Error("User not authenticated") };
 
     try {
+      // Map the updates to database format
+      const dbUpdates = toDB(updates);
+
       const { data: updatedData, error } = await supabase
         .from(tableName)
-        .update(updates)
+        .update(dbUpdates)
         .eq("id", id)
         .eq("user_id", user.id) // Ensure user can only update their own data
         .select();
 
       if (error) throw error;
+
+      // Map the updated data back to our interface
+      const mappedData = updatedData ? updatedData.map(fromDB) : [];
 
       // Update local state
       setData((prev) =>
@@ -84,7 +145,21 @@ export function useUserData<T>(tableName: string, defaultValue: T[]) {
           (item as any).id === id ? { ...item, ...updates } : item,
         ),
       );
-      return { data: updatedData, error: null };
+
+      // For backward compatibility, also update localStorage
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        try {
+          localStorage.setItem(tableName, JSON.stringify(data));
+
+          // Trigger event for components using localStorage
+          const event = new Event(`${tableName}Updated`);
+          window.dispatchEvent(event);
+        } catch (e) {
+          console.error(`Failed to update ${tableName} in localStorage`, e);
+        }
+      }
+
+      return { data: mappedData, error: null };
     } catch (err) {
       console.error(`Error updating ${tableName}:`, err);
       return { error: err instanceof Error ? err : new Error(String(err)) };
@@ -105,7 +180,22 @@ export function useUserData<T>(tableName: string, defaultValue: T[]) {
       if (error) throw error;
 
       // Update local state
-      setData((prev) => prev.filter((item) => (item as any).id !== id));
+      const updatedData = data.filter((item) => (item as any).id !== id);
+      setData(updatedData);
+
+      // For backward compatibility, also update localStorage
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        try {
+          localStorage.setItem(tableName, JSON.stringify(updatedData));
+
+          // Trigger event for components using localStorage
+          const event = new Event(`${tableName}Updated`);
+          window.dispatchEvent(event);
+        } catch (e) {
+          console.error(`Failed to update ${tableName} in localStorage`, e);
+        }
+      }
+
       return { error: null };
     } catch (err) {
       console.error(`Error deleting from ${tableName}:`, err);
