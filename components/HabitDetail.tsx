@@ -74,25 +74,47 @@ const HabitDetail = ({
     (h) => h.date === today && h.completed,
   );
 
-  // Get completion rate
-  const completionRate =
-    (habit.completionHistory.filter((h) => h.completed).length /
-      habit.completionHistory.length) *
-    100;
+  // Calculate actual completion rate based on completion history
+  const getCompletionRate = () => {
+    if (!habit.completionHistory || habit.completionHistory.length === 0) {
+      return 0;
+    }
+
+    // Get the last 30 days of history
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+
+    // Filter for entries in the last 30 days
+    const recentHistory = habit.completionHistory.filter((entry) => {
+      const entryDate = new Date(entry.date);
+      return entryDate >= thirtyDaysAgo && entryDate <= today;
+    });
+
+    // Calculate completion rate
+    const completedDays = recentHistory.filter(
+      (entry) => entry.completed,
+    ).length;
+    const totalDays = recentHistory.length;
+
+    return totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0;
+  };
+
+  const completionRate = getCompletionRate();
 
   // Get habit icon based on type
   const getHabitIcon = (type: string) => {
     switch (type) {
       case "prayer":
-        return <Target size={24} color="#4F46E5" />;
+        return <Target size={24} color="#7E57C2" />;
       case "study":
-        return <Calendar size={24} color="#4F46E5" />;
+        return <Calendar size={24} color="#7E57C2" />;
       case "meeting":
-        return <Calendar size={24} color="#4F46E5" />;
+        return <Calendar size={24} color="#7E57C2" />;
       case "ministry":
-        return <Calendar size={24} color="#4F46E5" />;
+        return <Calendar size={24} color="#7E57C2" />;
       default:
-        return <Target size={24} color="#4F46E5" />;
+        return <Target size={24} color="#7E57C2" />;
     }
   };
 
@@ -125,7 +147,7 @@ const HabitDetail = ({
                 setShowOptions(false);
               }}
             >
-              <Edit size={18} color="#4F46E5" />
+              <Edit size={18} color="#7E57C2" />
               <Text className="ml-2 text-gray-800">Edit</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -148,17 +170,17 @@ const HabitDetail = ({
 
         {/* Stats */}
         <View className="flex-row justify-between mb-6">
-          <View className="bg-indigo-50 p-4 rounded-lg flex-1 mr-2 items-center">
-            <Flame size={24} color="#4F46E5" />
-            <Text className="text-2xl font-bold text-indigo-600 mt-1">
+          <View className="bg-primary-50 p-4 rounded-lg flex-1 mr-2 items-center">
+            <Flame size={24} color="#7E57C2" />
+            <Text className="text-2xl font-bold text-primary-600 mt-1">
               {habit.streak}
             </Text>
             <Text className="text-gray-600 text-sm">Day Streak</Text>
           </View>
-          <View className="bg-indigo-50 p-4 rounded-lg flex-1 ml-2 items-center">
-            <CheckCircle size={24} color="#4F46E5" />
-            <Text className="text-2xl font-bold text-indigo-600 mt-1">
-              {Math.round(completionRate)}%
+          <View className="bg-primary-50 p-4 rounded-lg flex-1 ml-2 items-center">
+            <CheckCircle size={24} color="#7E57C2" />
+            <Text className="text-2xl font-bold text-primary-600 mt-1">
+              {completionRate}%
             </Text>
             <Text className="text-gray-600 text-sm">Completion</Text>
           </View>
@@ -184,7 +206,7 @@ const HabitDetail = ({
 
         {/* Mark as complete button */}
         <Pressable
-          className={`p-4 rounded-lg mb-6 flex-row justify-center items-center ${isTodayCompleted ? "bg-green-100" : "bg-indigo-600"}`}
+          className={`p-4 rounded-lg mb-6 flex-row justify-center items-center ${isTodayCompleted ? "bg-green-100" : "bg-primary-600"}`}
           onPress={() => onComplete(habit.id, today)}
           disabled={isTodayCompleted}
         >
@@ -206,7 +228,7 @@ const HabitDetail = ({
           <View className="bg-gray-50 rounded-lg p-3">
             <View className="flex-row mb-4">
               <TouchableOpacity
-                className={`flex-1 py-2 mr-1 rounded-md ${habitViewMode === "week" ? "bg-indigo-600" : "bg-gray-200"}`}
+                className={`flex-1 py-2 mr-1 rounded-md ${habitViewMode === "week" ? "bg-primary-600" : "bg-gray-200"}`}
                 onPress={() => setHabitViewMode("week")}
                 activeOpacity={0.7}
               >
@@ -217,7 +239,7 @@ const HabitDetail = ({
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                className={`flex-1 py-2 mx-1 rounded-md ${habitViewMode === "month" ? "bg-indigo-600" : "bg-gray-200"}`}
+                className={`flex-1 py-2 mx-1 rounded-md ${habitViewMode === "month" ? "bg-primary-600" : "bg-gray-200"}`}
                 onPress={() => setHabitViewMode("month")}
                 activeOpacity={0.7}
               >
@@ -228,7 +250,7 @@ const HabitDetail = ({
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
-                className={`flex-1 py-2 ml-1 rounded-md ${habitViewMode === "year" ? "bg-indigo-600" : "bg-gray-200"}`}
+                className={`flex-1 py-2 ml-1 rounded-md ${habitViewMode === "year" ? "bg-primary-600" : "bg-gray-200"}`}
                 onPress={() => setHabitViewMode("year")}
                 activeOpacity={0.7}
               >
@@ -240,56 +262,35 @@ const HabitDetail = ({
               </TouchableOpacity>
             </View>
 
-            {/* Habit History Tiles */}
+            {/* Week View */}
             {habitViewMode === "week" && (
               <View className="mb-4">
+                {/* Current Week Only */}
                 <View className="flex-row justify-between mb-2">
-                  <Text className="text-gray-500 text-xs">Mon</Text>
-                  <Text className="text-gray-500 text-xs">Tue</Text>
-                  <Text className="text-gray-500 text-xs">Wed</Text>
-                  <Text className="text-gray-500 text-xs">Thu</Text>
-                  <Text className="text-gray-500 text-xs">Fri</Text>
-                  <Text className="text-gray-500 text-xs">Sat</Text>
-                  <Text className="text-gray-500 text-xs">Sun</Text>
-                </View>
+                  {Array.from({ length: 7 }).map((_, index) => {
+                    // Get current week days (Sunday = 0, Monday = 1, etc)
+                    const date = new Date();
+                    const currentDay = date.getDay(); // 0-6
+                    const firstDayOfWeek = new Date(date);
+                    firstDayOfWeek.setDate(date.getDate() - currentDay); // Start with Sunday
 
-                {/* Week 1 */}
-                <View className="flex-row justify-between mb-2">
-                  {[true, true, false, true, true, true, true].map(
-                    (completed, index) => (
+                    const dayDate = new Date(firstDayOfWeek);
+                    dayDate.setDate(firstDayOfWeek.getDate() + index);
+
+                    const dateStr = dayDate.toISOString().split("T")[0];
+                    const isCompleted =
+                      habit.completionHistory.some(
+                        (entry) => entry.date === dateStr && entry.completed,
+                      ) ||
+                      (dateStr === today && isTodayCompleted);
+
+                    return (
                       <TouchableOpacity
                         key={index}
-                        className={`w-10 h-10 rounded-lg items-center justify-center ${completed ? "bg-green-500" : "bg-gray-100"}`}
-                        onPress={() => console.log(`Pressed day ${index + 1}`)}
+                        className={`w-10 h-10 rounded-lg items-center justify-center ${isCompleted ? "bg-primary-600" : "bg-gray-100"}`}
                       />
-                    ),
-                  )}
-                </View>
-
-                {/* Week 2 */}
-                <View className="flex-row justify-between mb-2">
-                  {[false, true, true, true, false, true, false].map(
-                    (completed, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        className={`w-10 h-10 rounded-lg items-center justify-center ${completed ? "bg-green-500" : "bg-gray-100"}`}
-                        onPress={() => console.log(`Pressed day ${index + 8}`)}
-                      />
-                    ),
-                  )}
-                </View>
-
-                {/* Week 3 */}
-                <View className="flex-row justify-between mb-2">
-                  {[true, false, true, false, true, true, true].map(
-                    (completed, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        className={`w-10 h-10 rounded-lg items-center justify-center ${completed ? "bg-green-500" : "bg-gray-100"}`}
-                        onPress={() => console.log(`Pressed day ${index + 15}`)}
-                      />
-                    ),
-                  )}
+                    );
+                  })}
                 </View>
               </View>
             )}
@@ -298,18 +299,23 @@ const HabitDetail = ({
             {habitViewMode === "month" && (
               <View className="mb-4">
                 <View className="flex-row flex-wrap justify-between">
-                  {Array.from({ length: 30 }, (_, i) => (
-                    <TouchableOpacity
-                      key={i}
-                      className={`w-10 h-10 rounded-lg items-center justify-center m-1 ${Math.random() > 0.3 ? "bg-green-500" : "bg-gray-100"}`}
-                    >
-                      <Text
-                        className={`text-xs ${Math.random() > 0.3 ? "text-white" : "text-gray-700"} font-medium`}
-                      >
-                        {i + 1}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                  {Array.from({ length: 30 }, (_, i) => {
+                    const date = new Date();
+                    date.setDate(date.getDate() - 29 + i);
+                    const dateStr = date.toISOString().split("T")[0];
+                    const isCompleted =
+                      habit.completionHistory.some(
+                        (entry) => entry.date === dateStr && entry.completed,
+                      ) ||
+                      (dateStr === today && isTodayCompleted);
+
+                    return (
+                      <TouchableOpacity
+                        key={i}
+                        className={`w-10 h-10 rounded-lg items-center justify-center m-1 ${isCompleted ? "bg-primary-600" : "bg-gray-100"}`}
+                      />
+                    );
+                  })}
                 </View>
               </View>
             )}
@@ -331,8 +337,57 @@ const HabitDetail = ({
                   "Nov",
                   "Dec",
                 ].map((month, index) => {
-                  const completedDays = Math.floor(Math.random() * 20) + 5;
-                  const totalDays = 30;
+                  // Calculate completion rate for this month using actual data
+                  const now = new Date();
+                  const year = now.getFullYear();
+                  const monthStart = new Date(year, index, 1);
+                  const monthEnd = new Date(year, index + 1, 0);
+                  const currentMonth = now.getMonth();
+
+                  // Check if this is the current month
+                  const isCurrentMonth = index === currentMonth;
+
+                  // Filter completion history for entries in this month
+                  const monthEntries = habit.completionHistory.filter(
+                    (entry) => {
+                      const entryDate = new Date(entry.date);
+                      return entryDate >= monthStart && entryDate <= monthEnd;
+                    },
+                  );
+
+                  // Calculate completion percentage
+                  let completedCount = monthEntries.filter(
+                    (entry) => entry.completed,
+                  ).length;
+
+                  // Add today's completion if it's the current month
+                  if (isCurrentMonth && isTodayCompleted) {
+                    // Check if today is already in the entries to avoid double counting
+                    const todayInEntries = monthEntries.some(
+                      (entry) => entry.date === today,
+                    );
+
+                    if (!todayInEntries) {
+                      completedCount += 1;
+                    }
+                  }
+
+                  // Use the actual number of days in the month
+                  const daysInMonth = new Date(year, index + 1, 0).getDate();
+
+                  // For current month, use days passed so far
+                  let totalDays;
+                  if (isCurrentMonth) {
+                    totalDays = now.getDate(); // Days passed in current month
+                  } else {
+                    totalDays = daysInMonth;
+                  }
+
+                  const monthCompletionRate =
+                    totalDays > 0
+                      ? Math.round((completedCount / totalDays) * 100)
+                      : 0;
+
                   return (
                     <View
                       key={index}
@@ -341,14 +396,14 @@ const HabitDetail = ({
                       <Text className="text-gray-700 w-16">{month}</Text>
                       <View className="flex-1 mx-2 h-4 bg-gray-200 rounded-full overflow-hidden">
                         <View
-                          className="h-full bg-green-500 rounded-full"
+                          className="h-full bg-primary-600 rounded-full"
                           style={{
-                            width: `${(completedDays / totalDays) * 100}%`,
+                            width: `${monthCompletionRate}%`,
                           }}
                         />
                       </View>
                       <Text className="text-gray-700 text-xs">
-                        {completedDays}/{totalDays}
+                        {`${completedCount}/${index === 2 ? daysInMonth : totalDays}`}
                       </Text>
                     </View>
                   );
@@ -358,7 +413,7 @@ const HabitDetail = ({
 
             <View className="flex-row items-center justify-between">
               <View className="flex-row items-center">
-                <View className="w-4 h-4 rounded-sm bg-green-500 mr-1" />
+                <View className="w-4 h-4 rounded-sm bg-primary-600 mr-1" />
                 <Text className="text-xs text-gray-600">Completed</Text>
               </View>
               <View className="flex-row items-center">
@@ -400,10 +455,10 @@ const HabitDetail = ({
           </View>
 
           <TouchableOpacity className="flex-row items-center justify-center mt-3">
-            <Text className="text-indigo-600 font-medium">
+            <Text className="text-primary-600 font-medium">
               View Full History
             </Text>
-            <ChevronRight size={16} color="#4F46E5" />
+            <ChevronRight size={16} color="#7E57C2" />
           </TouchableOpacity>
         </View>
       </ScrollView>

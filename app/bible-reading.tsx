@@ -37,6 +37,7 @@ import ReadingHistory from "../components/ReadingHistory";
 import BottomNavigation from "../components/BottomNavigation";
 import BibleBookSelector from "../components/BibleBookSelector";
 import ChapterSelector from "../components/ChapterSelector";
+import BibleReadingTracker from "../components/BibleReadingTracker";
 import { useReadingHistory } from "../lib/hooks/useReadingHistory";
 
 export default function BibleReadingScreen() {
@@ -45,6 +46,32 @@ export default function BibleReadingScreen() {
     "chapter" | "page" | "verse" | "timer"
   >("chapter");
   const [dailyReadingCompleted, setDailyReadingCompleted] = useState(false);
+
+  // State for tracking completed chapters, verses, and pages
+  const [completedChapters, setCompletedChapters] = useState<string[]>([]);
+  const [completedVerses, setCompletedVerses] = useState<string[]>([]);
+  const [totalPages, setTotalPages] = useState<number>(0);
+  const [completedPages, setCompletedPages] = useState<number[]>([]);
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [showBookProgress, setShowBookProgress] = useState(false);
+
+  // Use the reading history hook
+  const {
+    data: readingHistoryData,
+    isLoading: readingHistoryLoading,
+    addData: addReadingHistory,
+    updateData: updateReadingHistory,
+  } = useReadingHistory();
+
+  // Create a local state to manage reading history for immediate UI updates
+  const [readingHistory, setReadingHistory] = useState([]);
+
+  // Update local state when data from hook changes
+  useEffect(() => {
+    if (readingHistoryData && Array.isArray(readingHistoryData)) {
+      setReadingHistory(readingHistoryData);
+    }
+  }, [readingHistoryData]);
 
   // Calculate reading stats from user data
   const calculateReadingStats = () => {
@@ -65,18 +92,34 @@ export default function BibleReadingScreen() {
     // Calculate streak (consecutive days with completed readings)
     let streak = 0;
     const today = new Date().toISOString().split("T")[0];
-    let currentDate = new Date(today);
 
-    for (let i = 0; i < sortedHistory.length; i++) {
-      const historyDate = new Date(sortedHistory[i].date);
-      const timeDiff = Math.abs(currentDate.getTime() - historyDate.getTime());
-      const diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    // Check if today is completed first
+    const todayCompleted = sortedHistory.some(
+      (day) => day.date === today && day.completed,
+    );
 
-      if (diffDays === 1 && sortedHistory[i].completed) {
-        streak++;
-        currentDate = historyDate;
-      } else {
-        break;
+    if (todayCompleted) {
+      streak = 1;
+
+      // Then check previous days
+      let currentDate = new Date(today);
+      currentDate.setDate(currentDate.getDate() - 1); // Start with yesterday
+
+      for (let i = 0; i < sortedHistory.length; i++) {
+        if (sortedHistory[i].date === today) continue; // Skip today's entry
+
+        const historyDate = new Date(sortedHistory[i].date);
+        const timeDiff = Math.abs(
+          currentDate.getTime() - historyDate.getTime(),
+        );
+        const diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+        if (diffDays === 0 && sortedHistory[i].completed) {
+          streak++;
+          currentDate.setDate(currentDate.getDate() - 1);
+        } else {
+          break;
+        }
       }
     }
 
@@ -102,9 +145,13 @@ export default function BibleReadingScreen() {
   const [completionRate, setCompletionRate] = useState(0);
   const [chaptersRead, setChaptersRead] = useState(0);
   const [showSettings, setShowSettings] = useState(true);
+  const [showJournalAfterComplete, setShowJournalAfterComplete] =
+    useState(true);
   const [historyViewMode, setHistoryViewMode] = useState<
     "week" | "month" | "year"
   >("week");
+  const [newPrompt, setNewPrompt] = useState("");
+  const [showPromptSettings, setShowPromptSettings] = useState(false);
 
   // Journal entry state
   const [showJournalModal, setShowJournalModal] = useState(false);
@@ -116,6 +163,67 @@ export default function BibleReadingScreen() {
   const [bookInput, setBookInput] = useState("Matthew");
   const [startChapter, setStartChapter] = useState(5);
   const [chapterCount, setChapterCount] = useState(1);
+
+  // Find the next chapter to read based on completed chapters
+  useEffect(() => {
+    if (!readingHistoryLoading && readingHistory && readingHistory.length > 0) {
+      // Get all completed chapters
+      const allCompletedChapters = readingHistory
+        .filter(
+          (entry) =>
+            entry.method === "chapter" &&
+            Array.isArray(entry.completedChapters),
+        )
+        .flatMap((entry) => entry.completedChapters || []);
+
+      if (allCompletedChapters.length > 0) {
+        // Find the highest chapter number for each book
+        const bookChapterMap = {};
+
+        allCompletedChapters.forEach((chapterInfo) => {
+          const match = chapterInfo.match(/([\w\s]+)\s+(\d+)/);
+          if (match) {
+            const bookName = match[1].trim();
+            const chapter = parseInt(match[2]);
+
+            if (
+              !bookChapterMap[bookName] ||
+              chapter > bookChapterMap[bookName]
+            ) {
+              bookChapterMap[bookName] = chapter;
+            }
+          }
+        });
+
+        // Find the most recent completed chapter entry
+        const sortedHistory = [...readingHistory].sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+        );
+
+        const recentChapterEntry = sortedHistory.find(
+          (entry) => entry.method === "chapter" && entry.completed,
+        );
+
+        if (recentChapterEntry) {
+          // Extract book name from the most recent entry
+          const match = recentChapterEntry.content.match(
+            /([\w\s]+)\s+(\d+)(?:-(\d+))?/,
+          );
+          if (match) {
+            const bookName = match[1].trim();
+            const lastChapter = bookChapterMap[bookName] || 0;
+
+            // Set the book and next chapter
+            setBookInput(bookName);
+            setStartChapter(lastChapter + 1);
+            console.log(
+              `Setting next chapter to ${bookName} ${lastChapter + 1}`,
+            );
+          }
+        }
+      }
+    }
+  }, [readingHistory, readingHistoryLoading]);
 
   // Page tracking
   const [pageInput, setPageInput] = useState("42");
@@ -136,14 +244,6 @@ export default function BibleReadingScreen() {
   const [playAlarmSound, setPlayAlarmSound] = useState(true);
   const timerRef = useRef(null);
 
-  // Use the reading history hook
-  const {
-    data: readingHistory,
-    isLoading: readingHistoryLoading,
-    addData: addReadingHistory,
-    updateData: updateReadingHistory,
-  } = useReadingHistory();
-
   // Update stats when reading history changes
   useEffect(() => {
     if (!readingHistoryLoading && Array.isArray(readingHistory)) {
@@ -152,6 +252,46 @@ export default function BibleReadingScreen() {
       setStreak(stats.streak);
       setCompletionRate(stats.completionRate);
       setChaptersRead(stats.chaptersRead);
+
+      // Extract completed chapters, verses, and pages from reading history
+      const allCompletedChapters = readingHistory
+        .filter(
+          (entry) =>
+            entry.method === "chapter" &&
+            Array.isArray(entry.completedChapters),
+        )
+        .flatMap((entry) => entry.completedChapters || []);
+
+      const allCompletedVerses = readingHistory
+        .filter(
+          (entry) =>
+            entry.method === "verse" && Array.isArray(entry.completedVerses),
+        )
+        .flatMap((entry) => entry.completedVerses || []);
+
+      const allCompletedPages = readingHistory
+        .filter(
+          (entry) =>
+            entry.method === "page" && Array.isArray(entry.completedPages),
+        )
+        .flatMap((entry) => entry.completedPages || []);
+
+      // Find the most recent total pages value
+      const pageEntries = readingHistory.filter(
+        (entry) => entry.method === "page" && entry.totalPages,
+      );
+      const latestTotalPages =
+        pageEntries.length > 0
+          ? pageEntries.sort(
+              (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+            )[0].totalPages
+          : 0;
+
+      // Update state with unique values
+      setCompletedChapters([...new Set(allCompletedChapters)]);
+      setCompletedVerses([...new Set(allCompletedVerses)]);
+      setCompletedPages([...new Set(allCompletedPages.map(Number))]);
+      setTotalPages(latestTotalPages || 0);
     }
   }, [readingHistory, readingHistoryLoading]);
 
@@ -168,10 +308,6 @@ export default function BibleReadingScreen() {
     "What did you learn about Jesus from this reading?",
     "How can you apply this gem in your ministry?",
   ]);
-
-  // State for custom prompt
-  const [showPromptSettings, setShowPromptSettings] = useState(false);
-  const [newPrompt, setNewPrompt] = useState("");
 
   // Timer effect
   useEffect(() => {
@@ -230,11 +366,63 @@ export default function BibleReadingScreen() {
   };
 
   // Update timer duration
-  const updateTimerDuration = (minutes) => {
+  const handleUpdateTimerDuration = (minutes) => {
     const newDuration = Math.max(1, minutes);
     setTimerDuration(newDuration);
     if (!timerRunning) {
       setTimeRemaining(newDuration * 60);
+    }
+  };
+
+  // Update total pages in Bible
+  const onUpdateTotalPages = (pages: number) => {
+    setTotalPages(pages);
+
+    // Update the most recent page entry with the new total pages
+    const today = new Date().toISOString().split("T")[0];
+    const pageEntries = readingHistory.filter(
+      (entry) => entry.method === "page",
+    );
+
+    if (pageEntries.length > 0) {
+      // Find the most recent page entry
+      const sortedEntries = [...pageEntries].sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+      );
+      const latestEntry = sortedEntries[0];
+
+      // Update the entry with the new total pages
+      updateReadingHistory(latestEntry.id, { totalPages: pages });
+
+      // Update local state
+      const updatedHistory = readingHistory.map((entry) =>
+        entry.id === latestEntry.id ? { ...entry, totalPages: pages } : entry,
+      );
+      setReadingHistory(updatedHistory);
+    } else if (readingHistory.length > 0) {
+      // If there are no page entries but there are other entries, create a new page entry
+      const todayEntry = readingHistory.find((entry) => entry.date === today);
+
+      if (todayEntry) {
+        // Update today's entry with the total pages
+        updateReadingHistory(todayEntry.id, { totalPages: pages });
+
+        // Update local state
+        const updatedHistory = readingHistory.map((entry) =>
+          entry.id === todayEntry.id ? { ...entry, totalPages: pages } : entry,
+        );
+        setReadingHistory(updatedHistory);
+      } else {
+        // Create a new entry for today with the total pages
+        addReadingHistory({
+          date: today,
+          completed: false,
+          content: "",
+          method: "page",
+          totalPages: pages,
+          completedPages: [],
+        });
+      }
     }
   };
 
@@ -259,41 +447,190 @@ export default function BibleReadingScreen() {
     setGemPrompts(updatedPrompts);
   };
 
-  // Handler for completing daily reading
+  // Handle marking Bible reading as complete
   const handleCompleteReading = async (method: string, value: any) => {
-    setDailyReadingCompleted(true);
-    // Update progress
-    setReadingProgress((prev) => Math.min(prev + 0.01, 1));
+    try {
+      setDailyReadingCompleted(true);
 
-    // Update streak
-    setStreak(streak + 1);
+      // Check if today's reading already exists
+      const today = new Date().toISOString().split("T")[0];
+      const todayReading = readingHistory?.find(
+        (entry) => entry.date === today,
+      );
 
-    // Add to reading history in database
-    const today = new Date().toISOString().split("T")[0];
-    await addReadingHistory({
-      date: today,
-      completed: true,
-      content: value,
-      method: method,
-    });
+      // Process the reading data based on method
+      let newCompletedChapters = [...completedChapters];
+      let newCompletedVerses = [...completedVerses];
+      let newCompletedPages = [...completedPages];
 
-    // Update completion rate
-    const completedDays =
-      readingHistory.filter((day) => day.completed).length + 1; // +1 for today
-    const totalDays = readingHistory.length + 1; // +1 for today
-    setCompletionRate(Math.round((completedDays / totalDays) * 100));
+      if (method === "chapter") {
+        // Extract chapter information
+        const chapterInfo = value.trim();
+        if (!newCompletedChapters.includes(chapterInfo)) {
+          newCompletedChapters.push(chapterInfo);
+        }
 
-    // Set current reading for journal entry
-    setCurrentReading(value);
+        // Also extract individual chapters for more detailed tracking
+        const match = chapterInfo.match(/([\w\s]+)\s+(\d+)(?:-(\d+))?/);
+        if (match) {
+          const bookName = match[1].trim();
+          const startChapter = parseInt(match[2]);
+          const endChapter = match[3] ? parseInt(match[3]) : startChapter;
 
-    // Show journal modal
-    setShowJournalModal(true);
+          // Add each individual chapter to the completedChapters array with a specific format
+          for (let chapter = startChapter; chapter <= endChapter; chapter++) {
+            const detailedChapterInfo = `${bookName} ${chapter}`;
+            if (!newCompletedChapters.includes(detailedChapterInfo)) {
+              newCompletedChapters.push(detailedChapterInfo);
+            }
+          }
+        }
 
-    // Set default journal title based on reading
-    setJournalTitle(`Spiritual Gems from ${value}`);
+        console.log("Added chapter to completed chapters:", chapterInfo);
+        console.log("New completed chapters:", newCompletedChapters);
+      } else if (method === "verse") {
+        // Extract verse information
+        const verseInfo = value.trim();
+        if (!newCompletedVerses.includes(verseInfo)) {
+          newCompletedVerses.push(verseInfo);
+        }
+        console.log("Added verse to completed verses:", verseInfo);
+      } else if (method === "page") {
+        // Extract page information
+        const pageMatch = value.match(/Pages? (\d+)(?:-(\d+))?/);
+        if (pageMatch) {
+          const startPage = parseInt(pageMatch[1]);
+          const endPage = pageMatch[2] ? parseInt(pageMatch[2]) : startPage;
 
-    // Clear previous journal content
-    setJournalContent("");
+          for (let page = startPage; page <= endPage; page++) {
+            if (!newCompletedPages.includes(page)) {
+              newCompletedPages.push(page);
+            }
+          }
+          console.log("Added pages to completed pages:", newCompletedPages);
+        }
+      }
+
+      // Prepare update data with stringified arrays for Supabase
+      const updateData = {
+        completed: true,
+        content: value,
+        method: method,
+        completed_chapters: JSON.stringify(newCompletedChapters),
+        completed_verses: JSON.stringify(newCompletedVerses),
+        completed_pages: JSON.stringify(newCompletedPages),
+        total_pages: method === "page" ? totalPages : undefined,
+      };
+
+      console.log("Update data being sent to database:", updateData);
+
+      let updatedEntry;
+      if (todayReading) {
+        // Update existing entry
+        console.log(
+          "Updating existing reading entry for today:",
+          todayReading.id,
+        );
+        const result = await updateReadingHistory(todayReading.id, updateData);
+        updatedEntry = result.data?.[0];
+        console.log("Updated entry result:", result);
+      } else {
+        // Add new entry to reading history in database
+        console.log("Adding new reading entry for today");
+        const result = await addReadingHistory({
+          date: today,
+          ...updateData,
+        });
+        updatedEntry = result.data?.[0];
+        console.log("Added entry result:", result);
+      }
+
+      // Update state with new completed items
+      setCompletedChapters(newCompletedChapters);
+      setCompletedVerses(newCompletedVerses);
+      setCompletedPages(newCompletedPages);
+
+      // Force a refresh of the reading history data
+      if (readingHistory) {
+        // If today's entry already exists, update it in the local state
+        if (todayReading) {
+          const updatedHistory = readingHistory.map((entry) =>
+            entry.id === todayReading.id
+              ? {
+                  ...entry,
+                  completed: true,
+                  content: value,
+                  method: method,
+                  completedChapters: newCompletedChapters,
+                  completed_chapters: JSON.stringify(newCompletedChapters),
+                  completedVerses: newCompletedVerses,
+                  completed_verses: JSON.stringify(newCompletedVerses),
+                  completedPages: newCompletedPages,
+                  completed_pages: JSON.stringify(newCompletedPages),
+                  totalPages: method === "page" ? totalPages : entry.totalPages,
+                  total_pages:
+                    method === "page" ? totalPages : entry.total_pages,
+                }
+              : entry,
+          );
+          // This is a hack to force the component to re-render with updated data
+          // since the useReadingHistory hook might not immediately reflect the changes
+          setReadingHistory(updatedHistory);
+        } else {
+          // If it's a new entry, add it to the local state
+          const newEntry = {
+            id: updatedEntry?.id || `temp-${Date.now()}`,
+            date: today,
+            completed: true,
+            content: value,
+            method: method,
+            user_id: updatedEntry?.user_id,
+            completedChapters: newCompletedChapters,
+            completed_chapters: JSON.stringify(newCompletedChapters),
+            completedVerses: newCompletedVerses,
+            completed_verses: JSON.stringify(newCompletedVerses),
+            completedPages: newCompletedPages,
+            completed_pages: JSON.stringify(newCompletedPages),
+            totalPages: method === "page" ? totalPages : 0,
+            total_pages: method === "page" ? totalPages : 0,
+          };
+          setReadingHistory([...readingHistory, newEntry]);
+        }
+      }
+
+      // Recalculate stats after database update
+      const stats = calculateReadingStats();
+      setReadingProgress(stats.progress);
+      setStreak(stats.streak);
+      setCompletionRate(stats.completionRate);
+      setChaptersRead(stats.chaptersRead);
+
+      console.log("Updated reading stats:", {
+        progress: stats.progress,
+        streak: stats.streak,
+        completionRate: stats.completionRate,
+        chaptersRead: stats.chaptersRead,
+      });
+
+      // Set current reading for journal entry
+      setCurrentReading(value);
+
+      // Show journal modal only if user preference is set
+      if (showJournalAfterComplete) {
+        setShowJournalModal(true);
+      } else {
+        // Hide settings after completing if not showing journal
+        setShowSettings(false);
+      }
+
+      // Set default journal title based on reading
+      setJournalTitle(`Spiritual Gems from ${value}`);
+
+      // Clear previous journal content
+      setJournalContent("");
+    } catch (error) {
+      console.error("Error completing reading:", error);
+    }
   };
 
   // Handle timer completion
@@ -459,6 +796,12 @@ export default function BibleReadingScreen() {
                   ? readingHistory[readingHistory.length - 1].date
                   : new Date().toISOString().split("T")[0]
               }
+              completedChapters={completedChapters}
+              completedVerses={completedVerses}
+              completedPages={completedPages}
+              totalPages={totalPages}
+              onShowProgressDetails={() => setShowBookProgress(true)}
+              onUpdateTotalPages={setTotalPages}
             />
 
             {/* Tracking Method Settings */}
@@ -466,6 +809,27 @@ export default function BibleReadingScreen() {
               <View className="bg-white p-4 rounded-xl shadow-sm">
                 <Text className="text-xl font-bold text-gray-800 mb-4">
                   Reading Settings
+                </Text>
+
+                <View className="flex-row justify-between items-center mb-2">
+                  <Text className="text-base font-medium text-gray-700">
+                    Journal Entry Preference
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() =>
+                      setShowJournalAfterComplete(!showJournalAfterComplete)
+                    }
+                    className={`w-12 h-6 rounded-full ${showJournalAfterComplete ? "bg-primary-500" : "bg-gray-300"} items-center justify-center`}
+                  >
+                    <View
+                      className={`w-5 h-5 rounded-full bg-white absolute ${showJournalAfterComplete ? "right-1" : "left-1"}`}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <Text className="text-sm text-gray-600 mb-4">
+                  {showJournalAfterComplete
+                    ? "Journal entry form will appear after marking reading complete"
+                    : "Reading will be marked complete without journal prompt"}
                 </Text>
 
                 <Text className="text-base font-medium text-gray-700 mb-2">
@@ -736,7 +1100,9 @@ export default function BibleReadingScreen() {
                       </Text>
                       <View className="flex-row items-center justify-between">
                         <TouchableOpacity
-                          onPress={() => updateTimerDuration(timerDuration - 5)}
+                          onPress={() =>
+                            handleUpdateTimerDuration(timerDuration - 5)
+                          }
                           className="bg-gray-200 w-10 h-10 rounded-full items-center justify-center"
                           disabled={timerDuration <= 5}
                         >
@@ -749,7 +1115,9 @@ export default function BibleReadingScreen() {
                           {timerDuration} minutes
                         </Text>
                         <TouchableOpacity
-                          onPress={() => updateTimerDuration(timerDuration + 5)}
+                          onPress={() =>
+                            handleUpdateTimerDuration(timerDuration + 5)
+                          }
                           className="bg-primary-500 w-10 h-10 rounded-full items-center justify-center"
                         >
                           <Plus size={20} color="#ffffff" />
@@ -759,7 +1127,7 @@ export default function BibleReadingScreen() {
 
                     <View className="flex-row items-center justify-between mb-4">
                       <View className="flex-row items-center">
-                        <Bell size={20} color="#4b5563" />
+                        <Bell size={20} color="#6B7280" />
                         <Text className="ml-2 text-gray-700">
                           Play alarm sound
                         </Text>
@@ -821,6 +1189,186 @@ export default function BibleReadingScreen() {
                 </TouchableOpacity>
               </View>
             )}
+
+            {/* Progress Details Modal */}
+            <Modal
+              animationType="slide"
+              transparent={true}
+              visible={showProgressModal}
+              onRequestClose={() => setShowProgressModal(false)}
+            >
+              <View className="flex-1 justify-center items-center bg-black/50">
+                <View className="bg-white rounded-xl w-11/12 max-h-[80%] p-4">
+                  <View className="flex-row justify-between items-center mb-4">
+                    <View className="flex-row items-center">
+                      <BookOpen size={24} color="#7E57C2" />
+                      <Text className="text-xl font-bold ml-2 text-primary-800">
+                        Reading Progress Details
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setShowProgressModal(false)}
+                    >
+                      <X size={24} color="#6B7280" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <ScrollView className="mb-4">
+                    {/* Bible Pages Section */}
+                    <View className="mb-6">
+                      <Text className="text-lg font-semibold mb-2 text-gray-800">
+                        Bible Pages
+                      </Text>
+                      <View className="flex-row items-center mb-4">
+                        <Text className="text-gray-700 mr-2">
+                          Total Pages in Your Bible:
+                        </Text>
+                        <TextInput
+                          className="border border-gray-300 rounded-md p-2 bg-gray-50 w-20"
+                          keyboardType="numeric"
+                          value={totalPages.toString()}
+                          onChangeText={(text) => {
+                            const pages = parseInt(text) || 0;
+                            onUpdateTotalPages(pages);
+                          }}
+                        />
+                      </View>
+
+                      {totalPages > 0 && (
+                        <View className="mb-4">
+                          <Text className="text-gray-700 mb-2">
+                            Pages Read: {completedPages.length} of {totalPages}{" "}
+                            (
+                            {Math.round(
+                              (completedPages.length / totalPages) * 100,
+                            )}
+                            %)
+                          </Text>
+                          <View className="h-3 w-full bg-gray-200 rounded-full overflow-hidden">
+                            <View
+                              className="h-full bg-primary-600 rounded-full"
+                              style={{
+                                width: `${(completedPages.length / totalPages) * 100}%`,
+                              }}
+                            />
+                          </View>
+                        </View>
+                      )}
+
+                      {completedPages.length > 0 && (
+                        <View>
+                          <Text className="text-gray-700 mb-2">
+                            Completed Pages:
+                          </Text>
+                          <View className="flex-row flex-wrap">
+                            {completedPages
+                              .sort((a, b) => a - b)
+                              .map((page) => (
+                                <View
+                                  key={page}
+                                  className="bg-primary-100 rounded-md px-2 py-1 m-1"
+                                >
+                                  <Text className="text-primary-700">
+                                    {page}
+                                  </Text>
+                                </View>
+                              ))}
+                          </View>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Completed Chapters Section */}
+                    <View className="mb-6">
+                      <Text className="text-lg font-semibold mb-2 text-gray-800">
+                        Completed Chapters
+                      </Text>
+                      {completedChapters.length > 0 ? (
+                        <View className="flex-row flex-wrap">
+                          {completedChapters.map((chapter) => (
+                            <View
+                              key={chapter}
+                              className="bg-primary-100 rounded-md px-3 py-2 m-1"
+                            >
+                              <Text className="text-primary-700">
+                                {chapter}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      ) : (
+                        <Text className="text-gray-500 italic">
+                          No chapters completed yet
+                        </Text>
+                      )}
+                    </View>
+
+                    {/* Completed Verses Section */}
+                    <View className="mb-6">
+                      <Text className="text-lg font-semibold mb-2 text-gray-800">
+                        Completed Verses
+                      </Text>
+                      {completedVerses.length > 0 ? (
+                        <View className="flex-row flex-wrap">
+                          {completedVerses.map((verse) => (
+                            <View
+                              key={verse}
+                              className="bg-primary-100 rounded-md px-3 py-2 m-1"
+                            >
+                              <Text className="text-primary-700">{verse}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      ) : (
+                        <Text className="text-gray-500 italic">
+                          No verses completed yet
+                        </Text>
+                      )}
+                    </View>
+                  </ScrollView>
+
+                  <TouchableOpacity
+                    className="bg-primary-600 py-3 rounded-lg items-center"
+                    onPress={() => setShowProgressModal(false)}
+                  >
+                    <Text className="text-white font-medium">Close</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Modal>
+
+            {/* Book Progress Modal */}
+            <Modal
+              animationType="slide"
+              transparent={true}
+              visible={showBookProgress}
+              onRequestClose={() => setShowBookProgress(false)}
+            >
+              <View className="flex-1 bg-white">
+                <View className="flex-1">
+                  <View className="flex-row justify-between items-center p-4 border-b border-gray-200">
+                    <View className="flex-row items-center">
+                      <BookOpen size={24} color="#7E57C2" />
+                      <Text className="text-xl font-bold ml-2 text-primary-800">
+                        Bible Reading Progress
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setShowBookProgress(false)}
+                    >
+                      <X size={24} color="#6B7280" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <BibleReadingTracker
+                    onViewDetails={() => {
+                      setShowBookProgress(false);
+                      setShowProgressModal(true);
+                    }}
+                  />
+                </View>
+              </View>
+            </Modal>
 
             {/* Journal Entry Modal */}
             <Modal
@@ -1031,43 +1579,34 @@ export default function BibleReadingScreen() {
                         <Text className="text-gray-500 text-xs">Sun</Text>
                       </View>
 
-                      {/* Generate week view based on actual reading history */}
-                      {Array.from({ length: 3 }).map((_, weekIndex) => {
-                        const today = new Date();
-                        today.setDate(today.getDate() - weekIndex * 7);
-                        const weekStart = new Date(today);
-                        weekStart.setDate(today.getDate() - today.getDay());
+                      <View className="flex-row justify-between mb-2">
+                        {Array.from({ length: 7 }).map((_, dayIndex) => {
+                          const today = new Date();
+                          const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
+                          const daysFromSunday = dayIndex;
+                          const date = new Date(today);
+                          date.setDate(
+                            today.getDate() - dayOfWeek + daysFromSunday,
+                          );
 
-                        return (
-                          <View
-                            key={`week-${weekIndex}`}
-                            className="flex-row justify-between mb-2"
-                          >
-                            {Array.from({ length: 7 }).map((_, dayIndex) => {
-                              const date = new Date(weekStart);
-                              date.setDate(weekStart.getDate() + dayIndex);
-                              const dateString = date
-                                .toISOString()
-                                .split("T")[0];
-                              const dayData = readingHistory.find(
-                                (day) => day.date === dateString,
-                              );
-                              const completed = dayData?.completed || false;
+                          const dateString = date.toISOString().split("T")[0];
+                          const dayData = readingHistory.find(
+                            (day) => day.date === dateString,
+                          );
+                          const completed = dayData?.completed || false;
 
-                              return (
-                                <TouchableOpacity
-                                  key={`day-${weekIndex}-${dayIndex}`}
-                                  className={`w-10 h-10 rounded-lg items-center justify-center ${completed ? "bg-green-500" : "bg-gray-100"}`}
-                                  onPress={() =>
-                                    dayData &&
-                                    console.log(`Pressed day ${dateString}`)
-                                  }
-                                />
-                              );
-                            })}
-                          </View>
-                        );
-                      })}
+                          return (
+                            <TouchableOpacity
+                              key={`day-${dayIndex}`}
+                              className={`w-10 h-10 rounded-lg items-center justify-center ${completed ? "bg-green-500" : "bg-gray-100"}`}
+                              onPress={() =>
+                                dayData &&
+                                console.log(`Pressed day ${dateString}`)
+                              }
+                            />
+                          );
+                        })}
+                      </View>
                     </View>
                   )}
 
@@ -1089,13 +1628,7 @@ export default function BibleReadingScreen() {
                             <TouchableOpacity
                               key={`month-day-${i}`}
                               className={`w-10 h-10 rounded-lg items-center justify-center m-1 ${completed ? "bg-green-500" : "bg-gray-100"}`}
-                            >
-                              <Text
-                                className={`text-xs ${completed ? "text-white" : "text-gray-700"} font-medium`}
-                              >
-                                {day}
-                              </Text>
-                            </TouchableOpacity>
+                            />
                           );
                         })}
                       </View>
@@ -1156,8 +1689,7 @@ export default function BibleReadingScreen() {
                               />
                             </View>
                             <Text className="text-gray-700 text-xs">
-                              {completedDays}/
-                              {totalDays > 0 ? totalDays : daysInMonth}
+                              {completedDays}/{daysInMonth}
                             </Text>
                           </View>
                         );

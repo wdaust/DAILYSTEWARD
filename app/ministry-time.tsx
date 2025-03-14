@@ -194,23 +194,19 @@ export default function MinistryTimePage() {
       };
     }
 
-    const weekly = ministryStats
-      .filter((stat) => stat.type === "weekly")
-      .reduce(
-        (acc, stat) => ({
-          hours: acc.hours + stat.hours,
-        }),
-        { hours: 0 },
-      );
+    // Find the weekly stats
+    const weeklyEntry = ministryStats.find((stat) => stat.type === "weekly");
+    const weekly = weeklyEntry ? { hours: weeklyEntry.hours } : { hours: 0 };
 
-    const monthly = ministryStats
-      .filter((stat) => stat.type === "monthly")
-      .reduce(
-        (acc, stat) => ({
-          hours: acc.hours + stat.hours,
-        }),
-        { hours: 0 },
-      );
+    // Find the monthly stats - sum up all monthly entries
+    const monthlyEntries = ministryStats.filter(
+      (stat) => stat.type === "monthly",
+    );
+    const totalMonthlyHours = monthlyEntries.reduce(
+      (sum, entry) => sum + (entry.hours || 0),
+      0,
+    );
+    const monthly = { hours: totalMonthlyHours };
 
     return { weekly, monthly };
   };
@@ -232,31 +228,38 @@ export default function MinistryTimePage() {
   const handleAddGoal = async () => {
     if (newGoal.target <= 0) return;
 
-    const goal = {
-      type: "Hours", // Only track hours now
-      current: 0,
-      target: newGoal.target,
-      period: "monthly", // Always set to monthly
-    };
+    try {
+      const goal = {
+        type: "Hours", // Only track hours now
+        current: 0,
+        target: newGoal.target,
+        period: "monthly", // Always set to monthly
+      };
 
-    // Save to Supabase
-    await addGoal(goal);
+      console.log("Adding new ministry goal:", goal);
 
-    // For backward compatibility, also update localStorage
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      const updatedGoals = [
-        ...ministryGoals,
-        { ...goal, id: Date.now().toString() },
-      ];
-      localStorage.setItem("ministryGoals", JSON.stringify(updatedGoals));
+      // Save to Supabase
+      const result = await addGoal(goal);
+      console.log("Ministry goal added result:", result);
 
-      // Trigger event for components using localStorage
-      const event = new Event("ministryGoalsUpdated");
-      window.dispatchEvent(event);
+      // For backward compatibility, also update localStorage
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        const updatedGoals = [
+          ...ministryGoals,
+          { ...goal, id: Date.now().toString() },
+        ];
+        localStorage.setItem("ministryGoals", JSON.stringify(updatedGoals));
+
+        // Trigger event for components using localStorage
+        const event = new Event("ministryGoalsUpdated");
+        window.dispatchEvent(event);
+      }
+
+      setNewGoal({ type: "Hours", target: 0, period: "monthly" });
+      setShowAddGoalModal(false);
+    } catch (error) {
+      console.error("Error adding ministry goal:", error);
     }
-
-    setNewGoal({ type: "Hours", target: 0, period: "monthly" });
-    setShowAddGoalModal(false);
   };
 
   // Handle editing a goal

@@ -300,31 +300,43 @@ export type Database = {
       reading_history: {
         Row: {
           completed: boolean | null
+          completed_chapters: string | null
+          completed_pages: string | null
+          completed_verses: string | null
           content: string | null
           created_at: string | null
           date: string
           id: string
           method: string | null
+          total_pages: number | null
           updated_at: string | null
           user_id: string | null
         }
         Insert: {
           completed?: boolean | null
+          completed_chapters?: string | null
+          completed_pages?: string | null
+          completed_verses?: string | null
           content?: string | null
           created_at?: string | null
           date: string
           id?: string
           method?: string | null
+          total_pages?: number | null
           updated_at?: string | null
           user_id?: string | null
         }
         Update: {
           completed?: boolean | null
+          completed_chapters?: string | null
+          completed_pages?: string | null
+          completed_verses?: string | null
           content?: string | null
           created_at?: string | null
           date?: string
           id?: string
           method?: string | null
+          total_pages?: number | null
           updated_at?: string | null
           user_id?: string | null
         }

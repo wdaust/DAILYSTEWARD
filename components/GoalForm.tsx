@@ -7,14 +7,7 @@ import {
   ScrollView,
   Platform,
 } from "react-native";
-import {
-  Flag,
-  Calendar,
-  Check,
-  X,
-  ChevronDown,
-  AlertCircle,
-} from "lucide-react-native";
+import { Flag, Check, X, ChevronDown, AlertCircle } from "lucide-react-native";
 
 interface GoalFormProps {
   onSave?: (goal: GoalData) => void;
@@ -26,7 +19,6 @@ interface GoalData {
   id?: string;
   title: string;
   description: string;
-  deadline: string;
   category: "spiritual" | "ministry" | "personal" | "family" | "other";
   notes?: string;
   subGoals: { id?: string; title: string; completed: boolean }[];
@@ -38,9 +30,6 @@ const GoalForm = ({
   initialData = {
     title: "",
     description: "",
-    deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0], // 30 days from now
     category: "spiritual",
     notes: "",
     subGoals: [],
@@ -67,10 +56,6 @@ const GoalForm = ({
 
     if (!goalData.description.trim()) {
       newErrors.description = "Description is required";
-    }
-
-    if (!goalData.deadline) {
-      newErrors.deadline = "Deadline is required";
     }
 
     setErrors(newErrors);
@@ -106,7 +91,7 @@ const GoalForm = ({
     <View className="flex-1 bg-white p-4 rounded-lg">
       <ScrollView showsVerticalScrollIndicator={false}>
         <View className="mb-6">
-          <Text className="text-xl font-bold mb-6 text-center text-indigo-800">
+          <Text className="text-xl font-bold mb-6 text-center text-primary-700">
             {initialData.id ? "Edit Goal" : "Create New Goal"}
           </Text>
 
@@ -164,7 +149,7 @@ const GoalForm = ({
                       category: category.id as any,
                     })
                   }
-                  className={`mr-2 mb-2 px-3 py-2 rounded-full ${goalData.category === category.id ? "bg-indigo-600" : "bg-gray-200"}`}
+                  className={`mr-2 mb-2 px-3 py-2 rounded-full ${goalData.category === category.id ? "bg-primary-600" : "bg-gray-200"}`}
                 >
                   <Text
                     className={`${goalData.category === category.id ? "text-white" : "text-gray-800"}`}
@@ -176,33 +161,7 @@ const GoalForm = ({
             </View>
           </View>
 
-          {/* Deadline Input */}
-          <View className="mb-4">
-            <Text className="text-sm font-medium mb-1 text-gray-700">
-              Deadline*
-            </Text>
-            <View
-              className={`flex-row items-center border ${errors.deadline ? "border-red-500" : "border-gray-300"} rounded-md p-3 bg-gray-50`}
-            >
-              <Calendar size={18} color="#6B7280" />
-              <TextInput
-                className="ml-2 flex-1"
-                placeholder="YYYY-MM-DD"
-                value={goalData.deadline}
-                onChangeText={(text) =>
-                  setGoalData({ ...goalData, deadline: text })
-                }
-              />
-            </View>
-            {errors.deadline && (
-              <Text className="text-red-500 text-xs mt-1">
-                {errors.deadline}
-              </Text>
-            )}
-            <Text className="text-gray-500 text-xs mt-1">
-              Format: YYYY-MM-DD (e.g., 2023-12-31)
-            </Text>
-          </View>
+          {/* Deadline field removed */}
 
           {/* Sub-goals Section */}
           <View className="mb-4">
@@ -219,7 +178,7 @@ const GoalForm = ({
                 onChangeText={setNewSubGoal}
               />
               <TouchableOpacity
-                className="bg-indigo-600 px-4 items-center justify-center rounded-r-md"
+                className="bg-primary-600 px-4 items-center justify-center rounded-r-md"
                 onPress={handleAddSubGoal}
               >
                 <Text className="text-white font-medium">Add</Text>
@@ -280,7 +239,7 @@ const GoalForm = ({
             </TouchableOpacity>
             <TouchableOpacity
               onPress={handleSave}
-              className="flex-1 ml-2 py-3 bg-indigo-600 rounded-md items-center justify-center flex-row"
+              className="flex-1 ml-2 py-3 bg-primary-600 rounded-md items-center justify-center flex-row"
             >
               <Check size={18} color="#FFFFFF" />
               <Text className="ml-2 font-medium text-white">Save Goal</Text>

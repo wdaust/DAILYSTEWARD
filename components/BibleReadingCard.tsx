@@ -26,6 +26,7 @@ import {
 } from "lucide-react-native";
 import BibleBookSelector from "./BibleBookSelector";
 import ChapterSelector from "./ChapterSelector";
+import { useReadingHistory } from "../lib/hooks/useReadingHistory";
 
 interface BibleReadingCardProps {
   progress?: number;
@@ -57,6 +58,10 @@ const BibleReadingCard = ({
   const [showTrackingOptions, setShowTrackingOptions] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
+  // Get reading history to determine next chapter
+  const { data: readingHistory, isLoading: readingHistoryLoading } =
+    useReadingHistory();
+
   // Chapter tracking
   const [bookInput, setBookInput] = useState("Matthew");
   const [startChapter, setStartChapter] = useState(5);
@@ -66,6 +71,67 @@ const BibleReadingCard = ({
   const [pageInput, setPageInput] = useState("42");
   const [pageEndInput, setPageEndInput] = useState("43");
   const [trackingMultiplePages, setTrackingMultiplePages] = useState(false);
+
+  // Find the next chapter to read based on completed chapters
+  useEffect(() => {
+    if (!readingHistoryLoading && readingHistory && readingHistory.length > 0) {
+      // Get all completed chapters
+      const allCompletedChapters = readingHistory
+        .filter(
+          (entry) =>
+            entry.method === "chapter" &&
+            Array.isArray(entry.completedChapters),
+        )
+        .flatMap((entry) => entry.completedChapters || []);
+
+      if (allCompletedChapters.length > 0) {
+        // Find the highest chapter number for each book
+        const bookChapterMap = {};
+
+        allCompletedChapters.forEach((chapterInfo) => {
+          const match = chapterInfo.match(/([\w\s]+)\s+(\d+)/);
+          if (match) {
+            const bookName = match[1].trim();
+            const chapter = parseInt(match[2]);
+
+            if (
+              !bookChapterMap[bookName] ||
+              chapter > bookChapterMap[bookName]
+            ) {
+              bookChapterMap[bookName] = chapter;
+            }
+          }
+        });
+
+        // Find the most recent completed chapter entry
+        const sortedHistory = [...readingHistory].sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+        );
+
+        const recentChapterEntry = sortedHistory.find(
+          (entry) => entry.method === "chapter" && entry.completed,
+        );
+
+        if (recentChapterEntry) {
+          // Extract book name from the most recent entry
+          const match = recentChapterEntry.content.match(
+            /([\w\s]+)\s+(\d+)(?:-(\d+))?/,
+          );
+          if (match) {
+            const bookName = match[1].trim();
+            const lastChapter = bookChapterMap[bookName] || 0;
+
+            // Set the book and next chapter
+            setBookInput(bookName);
+            setStartChapter(lastChapter + 1);
+            console.log(
+              `Setting next chapter to ${bookName} ${lastChapter + 1}`,
+            );
+          }
+        }
+      }
+    }
+  }, [readingHistory, readingHistoryLoading]);
 
   // Verse tracking
   const [verseBook, setVerseBook] = useState("Matthew");
@@ -216,28 +282,40 @@ const BibleReadingCard = ({
     Revelation: 66,
   };
 
-  const handleMarkComplete = () => {
-    if (trackingMethod === "chapter") {
-      const endChapter = startChapter + chapterCount - 1;
-      const readingValue =
-        chapterCount > 1
-          ? `${bookInput} ${startChapter}-${endChapter}`
-          : `${bookInput} ${startChapter}`;
-      onMarkComplete("chapter", readingValue);
-    } else if (trackingMethod === "page") {
-      const pageValue = trackingMultiplePages
-        ? `Pages ${pageInput}-${pageEndInput}`
-        : `Page ${pageInput}`;
-      onMarkComplete("page", pageValue);
-    } else if (trackingMethod === "verse") {
-      const verseValue =
-        verseStart === verseEnd
-          ? `${verseBook} ${verseChapter}:${verseStart}`
-          : `${verseBook} ${verseChapter}:${verseStart}-${verseEnd}`;
-      onMarkComplete("verse", verseValue);
-    } else if (trackingMethod === "timer") {
-      const readingValue = `${timerDuration} minute reading session`;
-      onMarkComplete("timer", readingValue);
+  const handleMarkComplete = async () => {
+    try {
+      let readingValue = "";
+
+      if (trackingMethod === "chapter") {
+        const endChapter = startChapter + chapterCount - 1;
+        readingValue =
+          chapterCount > 1
+            ? `${bookInput} ${startChapter}-${endChapter}`
+            : `${bookInput} ${startChapter}`;
+      } else if (trackingMethod === "page") {
+        readingValue = trackingMultiplePages
+          ? `Pages ${pageInput}-${pageEndInput}`
+          : `Page ${pageInput}`;
+      } else if (trackingMethod === "verse") {
+        readingValue =
+          verseStart === verseEnd
+            ? `${verseBook} ${verseChapter}:${verseStart}`
+            : `${verseBook} ${verseChapter}:${verseStart}-${verseEnd}`;
+      } else if (trackingMethod === "timer") {
+        readingValue = `${timerDuration} minute reading session`;
+      }
+
+      console.log(
+        `Marking reading complete: ${trackingMethod} - ${readingValue}`,
+      );
+      // Wait for the completion of the mark complete operation
+      await onMarkComplete(trackingMethod, readingValue);
+      console.log("Bible reading marked as complete");
+
+      // Update local state to reflect completion
+      setIsCompleted(true);
+    } catch (error) {
+      console.error("Error marking reading as complete:", error);
     }
   };
 
@@ -291,463 +369,429 @@ const BibleReadingCard = ({
     );
   };
 
+  const today = new Date().toISOString().split("T")[0];
+  // Use the isCompleted prop directly since we don't have access to habit data here
+  const isTodayCompleted = isCompleted;
+
   return (
-    <View className="bg-white p-5 rounded-2xl shadow-card w-full">
-      <TouchableOpacity
-        className="flex-row justify-between items-center mb-3"
-        onPress={() => setIsCollapsed(!isCollapsed)}
-      >
-        <View className="flex-row items-center">
-          <BookOpen size={22} color="#7E57C2" />
-          <Text className="text-xl font-semibold ml-2 text-neutral-800">
-            Bible Reading
+    <View className="w-full">
+      <View className="flex-row justify-between items-center mb-3">
+        <TouchableOpacity
+          onPress={onViewDetails}
+          className="flex-row items-center"
+        >
+          <Text className="text-primary-600 text-sm mr-1 font-medium">
+            View Details
+          </Text>
+          <ChevronRight size={16} color="#7E57C2" />
+        </TouchableOpacity>
+      </View>
+      {/* Stats Row */}
+      <View className="flex-row justify-between mb-3">
+        <View className="flex-row items-center bg-primary-50 px-4 py-2 rounded-xl">
+          <Calendar size={16} color="#7E57C2" />
+          <Text className="ml-2 text-primary-700 font-medium">
+            {streak} day streak
           </Text>
         </View>
-        <View className="flex-row items-center">
-          <TouchableOpacity
-            onPress={(e) => {
-              e.stopPropagation();
-              onViewDetails();
-            }}
-            className="flex-row items-center mr-2"
-          >
-            <Text className="text-primary-600 text-sm mr-1 font-medium">
-              View Details
-            </Text>
-            <ChevronRight size={16} color="#7E57C2" />
-          </TouchableOpacity>
-          {isCollapsed ? (
-            <ChevronRight size={20} color="#7E57C2" />
-          ) : (
-            <ChevronDown size={20} color="#7E57C2" />
-          )}
+        <View className="flex-row items-center bg-primary-50 px-4 py-2 rounded-xl">
+          <TrendingUp size={16} color="#7E57C2" />
+          <Text className="ml-2 text-primary-700 font-medium">
+            {completionRate}% completion
+          </Text>
         </View>
+      </View>
+      {/* Progress Bar */}
+      <View className="mb-3">
+        <View className="h-3 w-full bg-secondary-200 rounded-full overflow-hidden">
+          <View
+            className="h-full bg-primary-600 rounded-full"
+            style={{ width: `${progressPercentage}%` }}
+          />
+        </View>
+        <View className="flex-row justify-between mt-1">
+          <Text className="text-xs text-neutral-500">Progress</Text>
+          <Text className="text-xs font-medium text-primary-600">
+            {progressPercentage}%
+          </Text>
+        </View>
+      </View>
+      {/* Tracking Method Selector */}
+      <TouchableOpacity
+        className="flex-row justify-between items-center mb-2 bg-secondary-100 p-3 rounded-xl"
+        onPress={() => setShowTrackingOptions(!showTrackingOptions)}
+      >
+        <Text className="text-neutral-700">
+          Tracking by:{" "}
+          <Text className="font-semibold text-primary-700">
+            {trackingMethod.charAt(0).toUpperCase() + trackingMethod.slice(1)}
+          </Text>
+        </Text>
+        {showTrackingOptions ? (
+          <ChevronDown size={16} color="#7E57C2" />
+        ) : (
+          <ChevronRight size={16} color="#7E57C2" />
+        )}
       </TouchableOpacity>
-
-      {!isCollapsed && (
-        <>
-          {/* Stats Row */}
-          <View className="flex-row justify-between mb-3">
-            <View className="flex-row items-center bg-primary-50 px-4 py-2 rounded-xl">
-              <Calendar size={16} color="#7E57C2" />
-              <Text className="ml-2 text-primary-700 font-medium">
-                {streak} day streak
+      {showTrackingOptions && (
+        <View className="mb-4 bg-secondary-100 p-3 rounded-xl">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <TouchableOpacity
+              className={`mr-2 px-4 py-2 rounded-xl h-10 items-center justify-center ${trackingMethod === "chapter" ? "bg-primary-600" : "bg-secondary-200"}`}
+              onPress={() => onChangeTrackingMethod("chapter")}
+            >
+              <Text
+                className={
+                  trackingMethod === "chapter"
+                    ? "text-white font-medium"
+                    : "text-neutral-700"
+                }
+              >
+                By Chapter
               </Text>
-            </View>
-            <View className="flex-row items-center bg-primary-50 px-4 py-2 rounded-xl">
-              <TrendingUp size={16} color="#7E57C2" />
-              <Text className="ml-2 text-primary-700 font-medium">
-                {completionRate}% completion
+            </TouchableOpacity>
+            <TouchableOpacity
+              className={`mr-2 px-4 py-2 rounded-xl h-10 items-center justify-center ${trackingMethod === "page" ? "bg-primary-600" : "bg-secondary-200"}`}
+              onPress={() => onChangeTrackingMethod("page")}
+            >
+              <Text
+                className={
+                  trackingMethod === "page"
+                    ? "text-white font-medium"
+                    : "text-neutral-700"
+                }
+              >
+                By Page
               </Text>
-            </View>
-          </View>
-
-          {/* Progress Bar */}
-          <View className="mb-3">
-            <View className="h-3 w-full bg-secondary-200 rounded-full overflow-hidden">
-              <View
-                className="h-full bg-primary-600 rounded-full"
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </View>
-            <View className="flex-row justify-between mt-1">
-              <Text className="text-xs text-neutral-500">Progress</Text>
-              <Text className="text-xs font-medium text-primary-600">
-                {progressPercentage}%
+            </TouchableOpacity>
+            <TouchableOpacity
+              className={`mr-2 px-4 py-2 rounded-xl h-10 items-center justify-center ${trackingMethod === "verse" ? "bg-primary-600" : "bg-secondary-200"}`}
+              onPress={() => onChangeTrackingMethod("verse")}
+            >
+              <Text
+                className={
+                  trackingMethod === "verse"
+                    ? "text-white font-medium"
+                    : "text-neutral-700"
+                }
+              >
+                By Chapter & Verse
               </Text>
-            </View>
-          </View>
-
-          {/* Tracking Method Selector */}
-          <TouchableOpacity
-            className="flex-row justify-between items-center mb-2 bg-secondary-100 p-3 rounded-xl"
-            onPress={() => setShowTrackingOptions(!showTrackingOptions)}
-          >
-            <Text className="text-neutral-700">
-              Tracking by:{" "}
-              <Text className="font-semibold text-primary-700">
-                {trackingMethod.charAt(0).toUpperCase() +
-                  trackingMethod.slice(1)}
+            </TouchableOpacity>
+            <TouchableOpacity
+              className={`px-4 py-2 rounded-xl h-10 items-center justify-center ${trackingMethod === "timer" ? "bg-primary-600" : "bg-secondary-200"}`}
+              onPress={() => onChangeTrackingMethod("timer")}
+            >
+              <Text
+                className={
+                  trackingMethod === "timer"
+                    ? "text-white font-medium"
+                    : "text-neutral-700"
+                }
+              >
+                By Timer
               </Text>
-            </Text>
-            {showTrackingOptions ? (
-              <ChevronDown size={16} color="#7E57C2" />
-            ) : (
-              <ChevronRight size={16} color="#7E57C2" />
-            )}
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      )}
+      {/* Reading Input Section */}
+      <View className="bg-primary-50 p-4 rounded-xl mb-3">
+        <Text className="text-base font-medium text-primary-700 mb-3">
+          Today's Reading:
+        </Text>
 
-          {showTrackingOptions && (
-            <View className="mb-4 bg-secondary-100 p-3 rounded-xl">
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <TouchableOpacity
-                  className={`mr-2 px-4 py-2 rounded-xl h-10 items-center justify-center ${trackingMethod === "chapter" ? "bg-primary-600" : "bg-secondary-200"}`}
-                  onPress={() => onChangeTrackingMethod("chapter")}
-                >
-                  <Text
-                    className={
-                      trackingMethod === "chapter"
-                        ? "text-white font-medium"
-                        : "text-neutral-700"
-                    }
-                  >
-                    By Chapter
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className={`mr-2 px-4 py-2 rounded-xl h-10 items-center justify-center ${trackingMethod === "page" ? "bg-primary-600" : "bg-secondary-200"}`}
-                  onPress={() => onChangeTrackingMethod("page")}
-                >
-                  <Text
-                    className={
-                      trackingMethod === "page"
-                        ? "text-white font-medium"
-                        : "text-neutral-700"
-                    }
-                  >
-                    By Page
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className={`mr-2 px-4 py-2 rounded-xl h-10 items-center justify-center ${trackingMethod === "verse" ? "bg-primary-600" : "bg-secondary-200"}`}
-                  onPress={() => onChangeTrackingMethod("verse")}
-                >
-                  <Text
-                    className={
-                      trackingMethod === "verse"
-                        ? "text-white font-medium"
-                        : "text-neutral-700"
-                    }
-                  >
-                    By Chapter & Verse
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className={`px-4 py-2 rounded-xl h-10 items-center justify-center ${trackingMethod === "timer" ? "bg-primary-600" : "bg-secondary-200"}`}
-                  onPress={() => onChangeTrackingMethod("timer")}
-                >
-                  <Text
-                    className={
-                      trackingMethod === "timer"
-                        ? "text-white font-medium"
-                        : "text-neutral-700"
-                    }
-                  >
-                    By Timer
-                  </Text>
-                </TouchableOpacity>
-              </ScrollView>
-            </View>
-          )}
-
-          {/* Reading Input Section */}
-          <View className="bg-primary-50 p-4 rounded-xl mb-3">
-            <Text className="text-base font-medium text-primary-700 mb-3">
-              Today's Reading:
-            </Text>
-
-            {trackingMethod === "chapter" && (
-              <View>
-                <View className="flex-row items-center mb-3">
-                  <Text className="text-gray-700 w-24">Book:</Text>
-                  <View className="flex-1">
-                    <BibleBookSelector
-                      selectedBook={bookInput}
-                      onSelectBook={setBookInput}
-                    />
-                  </View>
-                </View>
-                <View className="flex-row items-center mb-3">
-                  <Text className="text-gray-700 w-24">Starting Chapter:</Text>
-                  <View className="flex-1">
-                    <ChapterSelector
-                      selectedBook={bookInput}
-                      selectedChapter={startChapter}
-                      onSelectChapter={setStartChapter}
-                    />
-                  </View>
-                </View>
-                <View className="flex-row items-center justify-between mb-2">
-                  <Text className="text-gray-700 w-24">
-                    Number of Chapters:
-                  </Text>
-                  <View className="flex-row items-center flex-1 justify-end">
-                    <TouchableOpacity
-                      onPress={decrementChapterCount}
-                      className="bg-gray-200 w-10 h-10 rounded-full items-center justify-center"
-                    >
-                      <Minus size={18} color="#4b5563" />
-                    </TouchableOpacity>
-                    <Text className="mx-4 text-lg font-medium">
-                      {chapterCount}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={incrementChapterCount}
-                      className="bg-primary-600 w-10 h-10 rounded-full items-center justify-center"
-                    >
-                      <Plus size={18} color="#ffffff" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
+        {trackingMethod === "chapter" && (
+          <View>
+            <View className="flex-row items-center mb-3">
+              <Text className="text-gray-700 w-24">Book:</Text>
+              <View className="flex-1">
+                <BibleBookSelector
+                  selectedBook={bookInput}
+                  onSelectBook={setBookInput}
+                />
               </View>
-            )}
+            </View>
+            <View className="flex-row items-center mb-3">
+              <Text className="text-gray-700 w-24">Starting Chapter:</Text>
+              <View className="flex-1">
+                <ChapterSelector
+                  selectedBook={bookInput}
+                  selectedChapter={startChapter}
+                  onSelectChapter={setStartChapter}
+                />
+              </View>
+            </View>
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-gray-700 w-24">Number of Chapters:</Text>
+              <View className="flex-row items-center flex-1 justify-end">
+                <TouchableOpacity
+                  onPress={decrementChapterCount}
+                  className="bg-gray-200 w-10 h-10 rounded-full items-center justify-center"
+                >
+                  <Minus size={18} color="#4b5563" />
+                </TouchableOpacity>
+                <Text className="mx-4 text-lg font-medium">{chapterCount}</Text>
+                <TouchableOpacity
+                  onPress={incrementChapterCount}
+                  className="bg-primary-600 w-10 h-10 rounded-full items-center justify-center"
+                >
+                  <Plus size={18} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
 
-            {trackingMethod === "page" && (
+        {trackingMethod === "page" && (
+          <View>
+            <View className="flex-row items-center justify-between mb-2">
+              <Text className="text-gray-700">Track multiple pages:</Text>
+              <TouchableOpacity
+                onPress={() => setTrackingMultiplePages(!trackingMultiplePages)}
+                className={`w-10 h-6 rounded-full ${trackingMultiplePages ? "bg-primary-600" : "bg-gray-300"} items-center justify-center`}
+              >
+                <View
+                  className={`w-4 h-4 rounded-full bg-white absolute ${trackingMultiplePages ? "right-1" : "left-1"}`}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {trackingMultiplePages ? (
               <View>
-                <View className="flex-row items-center justify-between mb-2">
-                  <Text className="text-gray-700">Track multiple pages:</Text>
-                  <TouchableOpacity
-                    onPress={() =>
-                      setTrackingMultiplePages(!trackingMultiplePages)
-                    }
-                    className={`w-10 h-6 rounded-full ${trackingMultiplePages ? "bg-primary-600" : "bg-gray-300"} items-center justify-center`}
-                  >
-                    <View
-                      className={`w-4 h-4 rounded-full bg-white absolute ${trackingMultiplePages ? "right-1" : "left-1"}`}
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                {trackingMultiplePages ? (
-                  <View>
-                    <View className="flex-row mb-2">
-                      <View className="flex-1 mr-2">
-                        <Text className="text-gray-700 mb-1">Start Page:</Text>
-                        <TextInput
-                          className="border border-gray-300 rounded-md p-2 bg-white"
-                          value={pageInput}
-                          onChangeText={setPageInput}
-                          keyboardType="numeric"
-                          placeholder="Start page"
-                        />
-                      </View>
-                      <View className="flex-1">
-                        <Text className="text-gray-700 mb-1">End Page:</Text>
-                        <TextInput
-                          className="border border-gray-300 rounded-md p-2 bg-white"
-                          value={pageEndInput}
-                          onChangeText={setPageEndInput}
-                          keyboardType="numeric"
-                          placeholder="End page"
-                        />
-                      </View>
-                    </View>
-                  </View>
-                ) : (
-                  <View className="flex-row items-center">
-                    <Text className="text-gray-700 mr-2">Page Number:</Text>
+                <View className="flex-row mb-2">
+                  <View className="flex-1 mr-2">
+                    <Text className="text-gray-700 mb-1">Start Page:</Text>
                     <TextInput
-                      className="flex-1 border border-gray-300 rounded-md p-2 bg-white"
+                      className="border border-gray-300 rounded-md p-2 bg-white"
                       value={pageInput}
                       onChangeText={setPageInput}
                       keyboardType="numeric"
-                      placeholder="Enter page number"
-                    />
-                  </View>
-                )}
-              </View>
-            )}
-
-            {trackingMethod === "verse" && (
-              <View>
-                <View className="flex-row items-center mb-2">
-                  <Text className="text-gray-700 mr-2">Book:</Text>
-                  <BibleBookSelector
-                    selectedBook={verseBook}
-                    onSelectBook={setVerseBook}
-                  />
-                </View>
-                <View className="flex-row items-center mb-2">
-                  <Text className="text-gray-700 mr-2">Chapter:</Text>
-                  <ChapterSelector
-                    selectedBook={verseBook}
-                    selectedChapter={verseChapter}
-                    onSelectChapter={setVerseChapter}
-                  />
-                </View>
-                <View className="flex-row mb-2">
-                  <View className="flex-1 mr-2">
-                    <Text className="text-gray-700 mb-1">Start Verse:</Text>
-                    <TextInput
-                      className="border border-gray-300 rounded-md p-2 bg-white"
-                      placeholder="1"
-                      value={verseStart.toString()}
-                      onChangeText={(text) =>
-                        setVerseStart(parseInt(text) || 1)
-                      }
-                      keyboardType="numeric"
+                      placeholder="Start page"
                     />
                   </View>
                   <View className="flex-1">
-                    <Text className="text-gray-700 mb-1">End Verse:</Text>
+                    <Text className="text-gray-700 mb-1">End Page:</Text>
                     <TextInput
                       className="border border-gray-300 rounded-md p-2 bg-white"
-                      placeholder="16"
-                      value={verseEnd.toString()}
-                      onChangeText={(text) =>
-                        setVerseEnd(parseInt(text) || verseStart)
-                      }
+                      value={pageEndInput}
+                      onChangeText={setPageEndInput}
                       keyboardType="numeric"
+                      placeholder="End page"
                     />
                   </View>
                 </View>
               </View>
-            )}
-
-            {trackingMethod === "timer" && (
-              <View>
-                <View className="items-center mb-3">
-                  <View className="w-24 h-24 rounded-full bg-primary-100 items-center justify-center mb-2">
-                    <Text className="text-2xl font-bold text-primary-700">
-                      {formatTime(timeRemaining)}
-                    </Text>
-                  </View>
-                  <View className="flex-row">
-                    {!timerRunning && !timerCompleted && (
-                      <TouchableOpacity
-                        onPress={startTimer}
-                        className="bg-primary-600 w-10 h-10 rounded-full items-center justify-center mr-2"
-                      >
-                        <Play size={20} color="#ffffff" />
-                      </TouchableOpacity>
-                    )}
-                    {timerRunning && (
-                      <TouchableOpacity
-                        onPress={pauseTimer}
-                        className="bg-orange-500 w-10 h-10 rounded-full items-center justify-center mr-2"
-                      >
-                        <Pause size={20} color="#ffffff" />
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity
-                      onPress={resetTimer}
-                      className="bg-gray-500 w-10 h-10 rounded-full items-center justify-center"
-                    >
-                      <RotateCcw size={20} color="#ffffff" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <View className="mb-2">
-                  <Text className="text-gray-700 mb-1">Timer Duration:</Text>
-                  <View className="flex-row items-center justify-between">
-                    <TouchableOpacity
-                      onPress={() => updateTimerDuration(timerDuration - 5)}
-                      className="bg-gray-200 w-8 h-8 rounded-full items-center justify-center"
-                      disabled={timerDuration <= 5}
-                    >
-                      <Minus
-                        size={16}
-                        color={timerDuration <= 5 ? "#9ca3af" : "#4b5563"}
-                      />
-                    </TouchableOpacity>
-                    <Text className="text-base font-medium">
-                      {timerDuration} minutes
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => updateTimerDuration(timerDuration + 5)}
-                      className="bg-primary-600 w-8 h-8 rounded-full items-center justify-center"
-                    >
-                      <Plus size={16} color="#ffffff" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-row items-center">
-                    <Bell size={16} color="#4b5563" />
-                    <Text className="ml-2 text-sm text-gray-700">
-                      Play alarm sound
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => setPlayAlarmSound(!playAlarmSound)}
-                    className={`w-10 h-6 rounded-full ${playAlarmSound ? "bg-primary-600" : "bg-gray-300"} items-center justify-center`}
-                  >
-                    <View
-                      className={`w-4 h-4 rounded-full bg-white absolute ${playAlarmSound ? "right-1" : "left-1"}`}
-                    />
-                  </TouchableOpacity>
-                </View>
+            ) : (
+              <View className="flex-row items-center">
+                <Text className="text-gray-700 mr-2">Page Number:</Text>
+                <TextInput
+                  className="flex-1 border border-gray-300 rounded-md p-2 bg-white"
+                  value={pageInput}
+                  onChangeText={setPageInput}
+                  keyboardType="numeric"
+                  placeholder="Enter page number"
+                />
               </View>
             )}
+          </View>
+        )}
 
-            <View className="flex-row justify-between items-center mt-3 pt-3 border-t border-primary-100">
-              <Text className="text-lg font-semibold text-primary-700">
-                {getCurrentReadingText()}
-              </Text>
-
-              {(trackingMethod === "chapter" || trackingMethod === "verse") && (
-                <TouchableOpacity
-                  onPress={openInBible}
-                  className="flex-row items-center bg-primary-100 px-3 py-2 rounded-lg"
-                >
-                  <Text className="text-sm text-primary-700 mr-1">
-                    Open in Bible
-                  </Text>
-                  <ExternalLink size={14} color="#7E57C2" />
-                </TouchableOpacity>
-              )}
+        {trackingMethod === "verse" && (
+          <View>
+            <View className="flex-row items-center mb-2">
+              <Text className="text-gray-700 mr-2">Book:</Text>
+              <BibleBookSelector
+                selectedBook={verseBook}
+                onSelectBook={setVerseBook}
+              />
+            </View>
+            <View className="flex-row items-center mb-2">
+              <Text className="text-gray-700 mr-2">Chapter:</Text>
+              <ChapterSelector
+                selectedBook={verseBook}
+                selectedChapter={verseChapter}
+                onSelectChapter={setVerseChapter}
+              />
+            </View>
+            <View className="flex-row mb-2">
+              <View className="flex-1 mr-2">
+                <Text className="text-gray-700 mb-1">Start Verse:</Text>
+                <TextInput
+                  className="border border-gray-300 rounded-md p-2 bg-white"
+                  placeholder="1"
+                  value={verseStart.toString()}
+                  onChangeText={(text) => setVerseStart(parseInt(text) || 1)}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View className="flex-1">
+                <Text className="text-gray-700 mb-1">End Verse:</Text>
+                <TextInput
+                  className="border border-gray-300 rounded-md p-2 bg-white"
+                  placeholder="16"
+                  value={verseEnd.toString()}
+                  onChangeText={(text) =>
+                    setVerseEnd(parseInt(text) || verseStart)
+                  }
+                  keyboardType="numeric"
+                />
+              </View>
             </View>
           </View>
+        )}
 
-          {/* Action Button */}
-          <Pressable
-            className={`py-4 rounded-xl flex-row justify-center items-center ${isCompleted ? "bg-green-100" : trackingMethod === "timer" && timerCompleted ? "bg-primary-500" : "bg-primary-600"}`}
-            onPress={() => {
-              if (trackingMethod === "timer") {
-                if (timerCompleted) {
-                  handleMarkComplete();
-                } else if (!timerRunning) {
-                  startTimer();
-                }
-              } else {
-                handleMarkComplete();
-              }
-            }}
-            disabled={isCompleted}
-          >
-            {isCompleted ? (
-              <>
-                <CheckCircle size={20} color="#10b981" />
-                <Text className="ml-2 font-medium text-green-700 text-lg">
-                  Completed
+        {trackingMethod === "timer" && (
+          <View>
+            <View className="items-center mb-3">
+              <View className="w-24 h-24 rounded-full bg-primary-100 items-center justify-center mb-2">
+                <Text className="text-2xl font-bold text-primary-700">
+                  {formatTime(timeRemaining)}
                 </Text>
-              </>
-            ) : trackingMethod === "timer" ? (
-              timerCompleted ? (
-                <>
-                  <CheckCircle size={20} color="#ffffff" />
-                  <Text className="ml-2 font-medium text-white text-lg">
-                    Mark as Complete
-                  </Text>
-                </>
-              ) : timerRunning ? (
-                <>
-                  <Clock size={20} color="#ffffff" />
-                  <Text className="ml-2 font-medium text-white text-lg">
-                    Timer Running...
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Play size={20} color="#ffffff" />
-                  <Text className="ml-2 font-medium text-white text-lg">
-                    Start Timer
-                  </Text>
-                </>
-              )
-            ) : (
-              <>
-                <CheckCircle size={20} color="#ffffff" />
-                <Text className="ml-2 font-medium text-white text-lg">
-                  Mark as Complete
+              </View>
+              <View className="flex-row">
+                {!timerRunning && !timerCompleted && (
+                  <TouchableOpacity
+                    onPress={startTimer}
+                    className="bg-primary-600 w-10 h-10 rounded-full items-center justify-center mr-2"
+                  >
+                    <Play size={20} color="#ffffff" />
+                  </TouchableOpacity>
+                )}
+                {timerRunning && (
+                  <TouchableOpacity
+                    onPress={pauseTimer}
+                    className="bg-orange-500 w-10 h-10 rounded-full items-center justify-center mr-2"
+                  >
+                    <Pause size={20} color="#ffffff" />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  onPress={resetTimer}
+                  className="bg-gray-500 w-10 h-10 rounded-full items-center justify-center"
+                >
+                  <RotateCcw size={20} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View className="mb-2">
+              <Text className="text-gray-700 mb-1">Timer Duration:</Text>
+              <View className="flex-row items-center justify-between">
+                <TouchableOpacity
+                  onPress={() => updateTimerDuration(timerDuration - 5)}
+                  className="bg-gray-200 w-8 h-8 rounded-full items-center justify-center"
+                  disabled={timerDuration <= 5}
+                >
+                  <Minus
+                    size={16}
+                    color={timerDuration <= 5 ? "#9ca3af" : "#4b5563"}
+                  />
+                </TouchableOpacity>
+                <Text className="text-base font-medium">
+                  {timerDuration} minutes
                 </Text>
-              </>
-            )}
-          </Pressable>
-        </>
-      )}
+                <TouchableOpacity
+                  onPress={() => updateTimerDuration(timerDuration + 5)}
+                  className="bg-primary-600 w-8 h-8 rounded-full items-center justify-center"
+                >
+                  <Plus size={16} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center">
+                <Bell size={16} color="#4b5563" />
+                <Text className="ml-2 text-sm text-gray-700">
+                  Play alarm sound
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setPlayAlarmSound(!playAlarmSound)}
+                className={`w-10 h-6 rounded-full ${playAlarmSound ? "bg-primary-600" : "bg-gray-300"} items-center justify-center`}
+              >
+                <View
+                  className={`w-4 h-4 rounded-full bg-white absolute ${playAlarmSound ? "right-1" : "left-1"}`}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        <View className="flex-row justify-between items-center mt-3 pt-3 border-t border-primary-100">
+          <Text className="text-lg font-semibold text-primary-700">
+            {getCurrentReadingText()}
+          </Text>
+
+          {(trackingMethod === "chapter" || trackingMethod === "verse") && (
+            <TouchableOpacity
+              onPress={openInBible}
+              className="flex-row items-center bg-primary-100 px-3 py-2 rounded-lg"
+            >
+              <Text className="text-sm text-primary-700 mr-1">
+                Open in Bible
+              </Text>
+              <ExternalLink size={14} color="#7E57C2" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+      {/* Action Button */}
+      <Pressable
+        className={`py-4 rounded-xl flex-row justify-center items-center ${isTodayCompleted ? "bg-green-100" : trackingMethod === "timer" && timerCompleted ? "bg-primary-500" : "bg-primary-600"}`}
+        onPress={() => {
+          if (trackingMethod === "timer") {
+            if (timerCompleted) {
+              handleMarkComplete();
+            } else if (!timerRunning) {
+              startTimer();
+            }
+          } else {
+            handleMarkComplete();
+          }
+        }}
+        disabled={isTodayCompleted}
+      >
+        {isTodayCompleted ? (
+          <>
+            <CheckCircle size={20} color="#10b981" />
+            <Text className="ml-2 font-medium text-green-700 text-lg">
+              Completed
+            </Text>
+          </>
+        ) : trackingMethod === "timer" ? (
+          timerCompleted ? (
+            <>
+              <CheckCircle size={20} color="#ffffff" />
+              <Text className="ml-2 font-medium text-white text-lg">
+                Mark as Complete
+              </Text>
+            </>
+          ) : timerRunning ? (
+            <>
+              <Clock size={20} color="#ffffff" />
+              <Text className="ml-2 font-medium text-white text-lg">
+                Timer Running...
+              </Text>
+            </>
+          ) : (
+            <>
+              <Play size={20} color="#ffffff" />
+              <Text className="ml-2 font-medium text-white text-lg">
+                Start Timer
+              </Text>
+            </>
+          )
+        ) : (
+          <>
+            <CheckCircle size={20} color="#ffffff" />
+            <Text className="ml-2 font-medium text-white text-lg">
+              Mark as Complete
+            </Text>
+          </>
+        )}
+      </Pressable>
     </View>
   );
 };

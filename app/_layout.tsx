@@ -9,6 +9,8 @@ import "react-native-webview";
 import "../global.css";
 import { Platform, View, ActivityIndicator } from "react-native";
 import { AuthProvider, useAuth } from "../lib/auth";
+import { configureNotifications } from "../lib/notifications";
+import * as Notifications from "expo-notifications";
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -59,6 +61,25 @@ export default function RootLayout() {
       const { TempoDevtools } = require("tempo-devtools");
       TempoDevtools.init();
     }
+
+    // Configure notifications
+    const setupNotifications = async () => {
+      await configureNotifications();
+
+      // Set up notification response handler
+      const subscription =
+        Notifications.addNotificationResponseReceivedListener((response) => {
+          const data = response.notification.request.content.data;
+          console.log("Notification clicked:", data);
+          // Handle notification click (e.g., navigate to specific screen)
+        });
+
+      return () => subscription.remove();
+    };
+
+    if (Platform.OS !== "web") {
+      setupNotifications();
+    }
   }, []);
 
   useEffect(() => {
@@ -89,6 +110,25 @@ export default function RootLayout() {
                 name="reset-password"
                 options={{ headerShown: false }}
               />
+              <Stack.Screen
+                name="spiritual-progress"
+                options={{ headerShown: true }}
+              />
+              <Stack.Screen name="habits" options={{ headerShown: true }} />
+              <Stack.Screen
+                name="spiritual-tracker"
+                options={{ headerShown: true }}
+              />
+              <Stack.Screen
+                name="ministry-time"
+                options={{ headerShown: true }}
+              />
+              <Stack.Screen name="journal" options={{ headerShown: true }} />
+              <Stack.Screen
+                name="bible-reading"
+                options={{ headerShown: true }}
+              />
+              <Stack.Screen name="settings" options={{ headerShown: true }} />
             </Stack>
             <StatusBar style="auto" />
           </View>

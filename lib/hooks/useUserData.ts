@@ -85,9 +85,28 @@ export function useUserData<T, DBType = any>(
       // Map the data to database format
       const dbData = toDB(newData as Partial<T>);
 
+      // Clean up any empty date fields to prevent SQL errors
+      const cleanedData = Object.entries(dbData).reduce((acc, [key, value]) => {
+        // If the field is a date field and the value is an empty string, set it to null
+        if (
+          (key.includes("date") ||
+            key.includes("_at") ||
+            key.includes("completed")) &&
+          value === ""
+        ) {
+          acc[key] = null;
+        } else if (key === "show_on_dashboard" && value === undefined) {
+          // Default showOnDashboard to true if undefined
+          acc[key] = true;
+        } else {
+          acc[key] = value;
+        }
+        return acc;
+      }, {});
+
       const { data: insertedData, error } = await supabase
         .from(tableName)
-        .insert([{ ...dbData, user_id: user.id }])
+        .insert([{ ...cleanedData, user_id: user.id }])
         .select();
 
       if (error) throw error;
@@ -127,9 +146,31 @@ export function useUserData<T, DBType = any>(
       // Map the updates to database format
       const dbUpdates = toDB(updates);
 
+      // Clean up any empty date fields to prevent SQL errors
+      const cleanedUpdates = Object.entries(dbUpdates).reduce(
+        (acc, [key, value]) => {
+          // If the field is a date field and the value is an empty string, set it to null
+          if (
+            (key.includes("date") ||
+              key.includes("_at") ||
+              key.includes("completed")) &&
+            value === ""
+          ) {
+            acc[key] = null;
+          } else if (key === "show_on_dashboard" && value === undefined) {
+            // Default showOnDashboard to true if undefined
+            acc[key] = true;
+          } else {
+            acc[key] = value;
+          }
+          return acc;
+        },
+        {},
+      );
+
       const { data: updatedData, error } = await supabase
         .from(tableName)
-        .update(dbUpdates)
+        .update(cleanedUpdates)
         .eq("id", id)
         .eq("user_id", user.id) // Ensure user can only update their own data
         .select();
@@ -139,12 +180,18 @@ export function useUserData<T, DBType = any>(
       // Map the updated data back to our interface
       const mappedData = updatedData ? updatedData.map(fromDB) : [];
 
-      // Update local state
-      setData((prev) =>
-        prev.map((item) =>
-          (item as any).id === id ? { ...item, ...updates } : item,
-        ),
-      );
+      // Update local state with the mapped data or fallback to direct updates
+      if (mappedData && mappedData.length > 0) {
+        setData((prev) =>
+          prev.map((item) => ((item as any).id === id ? mappedData[0] : item)),
+        );
+      } else {
+        setData((prev) =>
+          prev.map((item) =>
+            (item as any).id === id ? { ...item, ...updates } : item,
+          ),
+        );
+      }
 
       // For backward compatibility, also update localStorage
       if (Platform.OS === "web" && typeof window !== "undefined") {
@@ -203,5 +250,5 @@ export function useUserData<T, DBType = any>(
     }
   };
 
-  return { data, isLoading, error, addData, updateData, deleteData };
+  return { data, isLoading, error, addData, updateData, deleteData, setData };
 }

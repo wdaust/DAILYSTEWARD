@@ -6,7 +6,9 @@ import {
   ScrollView,
   SafeAreaView,
   ActivityIndicator,
+  Alert,
 } from "react-native";
+import { Stack } from "expo-router";
 import { Plus } from "lucide-react-native";
 import BottomNavigation from "../components/BottomNavigation";
 import HabitList from "../components/HabitList";
@@ -26,9 +28,9 @@ export default function HabitsScreen() {
   const {
     data: habits,
     isLoading,
-    addData,
-    updateData,
-    deleteData,
+    addData: addHabit,
+    updateData: updateHabit,
+    deleteData: deleteHabit,
   } = useHabits();
 
   const handleHabitPress = (habit: any) => {
@@ -37,8 +39,33 @@ export default function HabitsScreen() {
   };
 
   const handleToggleComplete = async (habit: any, completed: boolean) => {
+    // Calculate new streak value
+    const newStreak = habit.completedToday
+      ? Math.max(0, habit.streak - 1)
+      : habit.streak + 1;
+    const today = new Date().toISOString().split("T")[0];
+
+    // Create updated habit object
+    const updatedHabit = {
+      ...habit,
+      completedToday: completed,
+      streak: newStreak,
+      lastCompleted: completed ? today : habit.lastCompleted,
+    };
+
     // Update the habit completion status in the database
-    await updateData(habit.id, { completedToday: completed });
+    await updateHabit(habit.id, {
+      completedToday: completed,
+      streak: newStreak,
+      lastCompleted: completed ? today : habit.lastCompleted,
+    });
+
+    // Update local state immediately to reflect changes
+    const updatedHabits = habits.map((h) =>
+      h.id === habit.id ? updatedHabit : h,
+    );
+    // Force update of the habits array to trigger re-render
+    setHabits(updatedHabits);
   };
 
   const handleEditHabit = (id: string) => {
@@ -51,7 +78,7 @@ export default function HabitsScreen() {
 
   const handleDeleteHabit = async (id: string) => {
     // Remove the habit from the database
-    await deleteData(id);
+    await deleteHabit(id);
     setCurrentView(HabitsView.LIST);
   };
 
@@ -61,7 +88,7 @@ export default function HabitsScreen() {
     if (!habit) return;
 
     // Update the habit completion history
-    const updatedHistory = [...habit.completionHistory];
+    const updatedHistory = [...(habit.completionHistory || [])];
     const existingEntryIndex = updatedHistory.findIndex(
       (entry) => entry.date === date,
     );
@@ -76,7 +103,7 @@ export default function HabitsScreen() {
     }
 
     // Update the habit in the database
-    await updateData(id, {
+    await updateHabit(id, {
       completedToday: true,
       completionHistory: updatedHistory,
       streak: habit.streak + 1,
@@ -100,45 +127,52 @@ export default function HabitsScreen() {
   };
 
   const handleSaveHabit = async (habitData: any) => {
-    if (selectedHabit) {
-      // Edit existing habit
-      const updates = {
-        name: habitData.title,
-        type: habitData.type,
-        description: habitData.notes || selectedHabit.description,
-        frequency: habitData.frequency.type,
-        reminderTime: habitData.reminders.enabled
-          ? habitData.reminders.time
-          : undefined,
-        showOnDashboard: habitData.showOnDashboard,
-      };
+    try {
+      console.log("Handling save habit in habits.tsx:", habitData);
+      if (selectedHabit) {
+        // Edit existing habit
+        const updates = {
+          name: habitData.title,
+          description: habitData.notes || selectedHabit.description,
+          frequency: habitData.frequency.type,
+          reminderTime: habitData.reminders.enabled
+            ? habitData.reminders.time
+            : null,
+          showOnDashboard: habitData.showOnDashboard,
+        };
 
-      await updateData(selectedHabit.id, updates);
-    } else {
-      // Create new habit
-      const newHabit = {
-        name: habitData.title,
-        type: habitData.type,
-        description: habitData.notes || "New habit",
-        frequency: habitData.frequency.type,
-        category: habitData.type,
-        type: habitData.type,
-        streak: 0,
-        completedToday: false,
-        lastCompleted: "",
-        progress: 0,
-        completionHistory: [],
-        showOnDashboard: habitData.showOnDashboard,
-        reminderTime: habitData.reminders.enabled
-          ? habitData.reminders.time
-          : undefined,
-        createdAt: new Date().toISOString().split("T")[0],
-      };
+        console.log("Updating habit with ID:", selectedHabit.id, updates);
+        await updateHabit(selectedHabit.id, updates);
+      } else {
+        // Create new habit
+        const newHabit = {
+          name: habitData.title,
+          description: habitData.notes || "New habit",
+          frequency: habitData.frequency.type,
+          category: "prayer",
+          type: "prayer",
+          streak: 0,
+          completedToday: false,
+          lastCompleted: null,
+          progress: 0,
+          completionHistory: [],
+          showOnDashboard: habitData.showOnDashboard,
+          reminderTime: habitData.reminders.enabled
+            ? habitData.reminders.time
+            : null,
+          createdAt: new Date().toISOString().split("T")[0],
+        };
 
-      await addData(newHabit);
+        console.log("Adding new habit:", newHabit);
+        await addHabit(newHabit);
+      }
+      console.log("Habit saved successfully");
+      setCurrentView(HabitsView.LIST);
+      setSelectedHabit(null);
+    } catch (error) {
+      console.error("Error saving habit:", error);
+      Alert.alert("Error", "Failed to save habit. Please try again.");
     }
-    setCurrentView(HabitsView.LIST);
-    setSelectedHabit(null);
   };
 
   const renderContent = () => {
@@ -160,7 +194,7 @@ export default function HabitsScreen() {
                 ? {
                     id: selectedHabit.id,
                     title: selectedHabit.name,
-                    type: selectedHabit.type,
+
                     frequency: {
                       type: selectedHabit.frequency,
                       days: [],
@@ -186,17 +220,40 @@ export default function HabitsScreen() {
         );
       default:
         return (
-          <HabitList
-            habits={habits}
-            onHabitPress={handleHabitPress}
-            onToggleComplete={handleToggleComplete}
-          />
+          <View className="flex-1">
+            <HabitList
+              habits={habits}
+              onHabitPress={handleHabitPress}
+              onToggleComplete={handleToggleComplete}
+            />
+
+            {/* Add Habit Button */}
+            <TouchableOpacity
+              onPress={() => {
+                setSelectedHabit(null);
+                setCurrentView(HabitsView.FORM);
+              }}
+              className="bg-primary-600 py-4 rounded-xl items-center mt-4 mx-4 mb-4 flex-row justify-center"
+            >
+              <Plus size={20} color="#FFFFFF" />
+              <Text className="text-white font-medium ml-2">Add New Habit</Text>
+            </TouchableOpacity>
+          </View>
         );
     }
   };
 
   return (
     <SafeAreaView className="flex-1 bg-secondary-200">
+      <Stack.Screen
+        options={{
+          title: "Spiritual Habits",
+          headerTitleStyle: {
+            fontWeight: "bold",
+          },
+        }}
+      />
+
       {/* Header */}
       <View className="bg-white p-5 border-b border-secondary-300 shadow-sm">
         <View className="flex-row justify-between items-center">

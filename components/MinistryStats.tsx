@@ -67,6 +67,7 @@ const MinistryStats = ({
     data: ministryGoalsData,
     isLoading: goalsLoading,
     addData: addGoal,
+    updateData: updateGoal,
   } = useMinistryGoals();
   const {
     data: timeEntriesData,
@@ -116,42 +117,87 @@ const MinistryStats = ({
 
   const stats = monthlyStats;
 
+  // Use the stats directly from the hook
+  // Find the weekly and monthly stats from ministryStats
+  useEffect(() => {
+    // Force re-render
+    setForceUpdate((prev) => prev + 1);
+
+    // Update current value in goal info when stats change
+    if (ministryGoalsData && ministryGoalsData.length > 0) {
+      const hoursGoal = ministryGoalsData.find((g) => g.type === "Hours");
+      if (hoursGoal) {
+        updateGoal(hoursGoal.id, { current: stats.hours || 0 });
+      }
+    }
+  }, [weeklyStats, monthlyStats, stats.hours, ministryGoalsData, updateGoal]);
+
+  const goalInfo = getGoalInfo();
+
+  // Use actual stats for current value, not the goal's current property
+  const currentHours = stats.hours || 0;
+
   const handleAddTime = async () => {
-    // Calculate total time in hours for stats display
-    const totalHours = hours + minutes / 60;
+    try {
+      // Calculate total time in hours for stats display
+      const totalHours = hours + minutes / 60;
 
-    // Create time entry object
-    const timeEntry = {
-      date: selectedDate.toISOString().split("T")[0],
-      hours: totalHours,
-      minutes: minutes,
-      ministry_type: selectedType,
-      type: "monthly", // Always monthly
-    };
+      // Create time entry object
+      const timeEntry = {
+        date: selectedDate.toISOString().split("T")[0],
+        hours: totalHours,
+        minutes: minutes,
+        ministry_type: selectedType,
+        type: "monthly", // Always monthly
+      };
 
-    // Save to Supabase
-    await addTimeEntry(timeEntry);
+      console.log("Saving ministry time entry:", timeEntry);
 
-    // Also call the prop function for backward compatibility
-    onAddTime({
-      date: selectedDate.toISOString().split("T")[0],
-      hours,
-      minutes,
-      type: selectedType,
-      ministryType: selectedType, // Track which ministry type was done
-    });
+      // Save to Supabase
+      const result = await addTimeEntry(timeEntry);
+      console.log("Ministry time entry saved result:", result);
 
-    setShowAddTimeModal(false);
-    // Reset form
-    setSelectedDate(new Date());
-    setSelectedType("Field Ministry");
-    setHours(0);
-    setMinutes(0);
-    setShowTypeSelector(false);
+      // Also update the ministry stats directly
+      // This ensures the UI updates immediately without requiring a page refresh
+      if (ministryGoalsData && ministryGoalsData.length > 0) {
+        const hoursGoal = ministryGoalsData.find((g) => g.type === "Hours");
+        if (hoursGoal) {
+          const newTotal = (hoursGoal.current || 0) + totalHours;
+          updateGoal(hoursGoal.id, { current: newTotal });
+        }
+      }
+
+      // Force refresh of stats
+      setForceUpdate((prev) => prev + 1);
+
+      // Also call the prop function for backward compatibility
+      onAddTime({
+        date: selectedDate.toISOString().split("T")[0],
+        hours,
+        minutes,
+        type: selectedType,
+        ministryType: selectedType, // Track which ministry type was done
+      });
+
+      // Close modal and reset form
+      setShowAddTimeModal(false);
+      setSelectedDate(new Date());
+      setSelectedType("Field Ministry");
+      setHours(0);
+      setMinutes(0);
+      setShowTypeSelector(false);
+
+      // Reload the page to show updated stats
+      router.replace("/ministry-time");
+    } catch (error) {
+      console.error("Error saving ministry time:", error);
+    }
   };
 
   const handleDateChange = (event, date) => {
-    setShowDatePicker(false);
+    if (Platform.OS === "android") {
+      setShowDatePicker(false);
+    }
     if (date) {
       setSelectedDate(date);
     }
@@ -241,28 +287,8 @@ const MinistryStats = ({
     };
   };
 
-  const goalInfo = getGoalInfo();
-
-  // Use actual stats for current value, not the goal's current property
-  const currentHours = stats.hours || 0;
-
   return (
-    <View className="bg-white p-6 rounded-2xl shadow-card w-full">
-      <View className="flex-row items-center justify-between mb-5">
-        <View className="flex-row items-center">
-          <Calendar size={20} color="#7E57C2" className="mr-2" />
-          <Text className="text-xl font-semibold text-neutral-800">
-            Ministry Time
-          </Text>
-        </View>
-        <TouchableOpacity
-          className="bg-primary-600 p-2 rounded-full"
-          onPress={() => setShowAddTimeModal(true)}
-        >
-          <Plus size={18} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
-
+    <View className="w-full">
       <View className="items-center bg-primary-50 p-4 rounded-xl mb-5">
         <View className="flex-row items-center mb-1">
           <Clock size={16} color="#7E57C2" />
@@ -307,7 +333,7 @@ const MinistryStats = ({
           </Text>
         </View>
         <View className="flex-row items-center">
-          <Text className="text-primary-600 font-medium">+12%</Text>
+          <Text className="text-gray-600 font-medium">No data available</Text>
         </View>
       </View>
 
@@ -360,13 +386,32 @@ const MinistryStats = ({
                     {selectedDate.toLocaleDateString()}
                   </Text>
                 </Pressable>
-                {showDatePicker && (
+                {showDatePicker && Platform.OS === "android" && (
                   <DateTimePicker
                     value={selectedDate}
                     mode="date"
                     display="default"
                     onChange={handleDateChange}
                   />
+                )}
+                {Platform.OS === "ios" && showDatePicker && (
+                  <View className="mt-2 bg-white border border-gray-200 rounded-md p-2">
+                    <DateTimePicker
+                      value={selectedDate}
+                      mode="date"
+                      display="spinner"
+                      onChange={handleDateChange}
+                      style={{ height: 120, width: "100%" }}
+                    />
+                    <View className="flex-row justify-end mt-2">
+                      <TouchableOpacity
+                        onPress={() => setShowDatePicker(false)}
+                        className="bg-primary-600 px-4 py-2 rounded-md"
+                      >
+                        <Text className="text-white font-medium">Done</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 )}
               </View>
 

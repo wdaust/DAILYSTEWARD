@@ -1,6 +1,17 @@
 import React from "react";
-import { View, Text, Pressable } from "react-native";
-import { Calendar, BookOpen, TrendingUp } from "lucide-react-native";
+import {
+  View,
+  Text,
+  Pressable,
+  TouchableOpacity,
+  TextInput,
+} from "react-native";
+import {
+  Calendar,
+  BookOpen,
+  TrendingUp,
+  ChevronRight,
+} from "lucide-react-native";
 
 interface ReadingProgressProps {
   progress?: number;
@@ -10,6 +21,12 @@ interface ReadingProgressProps {
   chaptersRead?: number;
   startDate?: string;
   completionRate?: number;
+  completedChapters?: string[];
+  completedVerses?: string[];
+  completedPages?: number[];
+  totalPages?: number;
+  onShowProgressDetails?: () => void;
+  onUpdateTotalPages?: (pages: number) => void;
 }
 
 const ReadingProgress = ({
@@ -20,9 +37,30 @@ const ReadingProgress = ({
   chaptersRead = 0,
   startDate = new Date().toISOString().split("T")[0],
   completionRate = 0,
+  completedChapters = [],
+  completedVerses = [],
+  completedPages = [],
+  totalPages = 0,
+  onShowProgressDetails = () => {}, // This will now navigate to the BibleReadingTracker view
+  onUpdateTotalPages = () => {},
 }: ReadingProgressProps) => {
+  console.log("ReadingProgress props:", {
+    progress,
+    daysCompleted,
+    currentStreak,
+    chaptersRead,
+    completionRate,
+  });
   // Calculate percentage for display
-  const progressPercentage = Math.round(progress * 100);
+  // Ensure we show at least 1% progress if there's at least one day completed
+  const progressPercentage =
+    daysCompleted > 0 ? Math.max(1, Math.round(progress * 100)) : 0;
+
+  // Calculate chapters read for display
+  const actualChaptersRead =
+    completedChapters && Array.isArray(completedChapters)
+      ? completedChapters.length
+      : chaptersRead;
 
   return (
     <View className="bg-white p-6 rounded-2xl shadow-card w-full mb-4">
@@ -62,7 +100,7 @@ const ReadingProgress = ({
             <Text className="ml-1 text-neutral-600 text-xs">Chapters</Text>
           </View>
           <Text className="text-lg font-bold text-neutral-800">
-            {chaptersRead}/{totalChapters}
+            {actualChaptersRead}/{totalChapters}
           </Text>
         </View>
 
@@ -76,6 +114,25 @@ const ReadingProgress = ({
           </Text>
         </View>
       </View>
+
+      {/* Detailed Progress Button */}
+      <TouchableOpacity
+        className="mt-4 bg-primary-50 p-3 rounded-xl flex-row justify-between items-center"
+        onPress={onShowProgressDetails}
+      >
+        <View className="flex-row items-center">
+          <BookOpen size={18} color="#7E57C2" />
+          <Text className="ml-2 text-primary-700 font-medium">
+            View Detailed Progress
+          </Text>
+        </View>
+        <View className="flex-row items-center">
+          <Text className="text-primary-600 mr-1">
+            {completedChapters.length} chapters, {completedVerses.length} verses
+          </Text>
+          <ChevronRight size={16} color="#7E57C2" />
+        </View>
+      </TouchableOpacity>
     </View>
   );
 };
