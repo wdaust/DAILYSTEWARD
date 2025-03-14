@@ -106,6 +106,50 @@ const MinistryStats = ({
     }
   }, []);
 
+  // Function to get goal value and current progress
+  const getGoalInfo = () => {
+    // Always use monthly goals
+    // First try to get goal from Supabase data
+    if (ministryGoalsData && ministryGoalsData.length > 0) {
+      const goal = ministryGoalsData.find(
+        (g) => g.type === "Hours" && g.period === "monthly",
+      );
+      if (goal) return { target: goal.target, current: goal.current || 0 };
+    }
+
+    // Fallback to localStorage for backward compatibility
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      try {
+        const savedGoals = localStorage.getItem("ministryGoals");
+        if (savedGoals) {
+          const goals = JSON.parse(savedGoals);
+          const goal = goals.find(
+            (g) => g.type === "Hours" && g.period === "monthly",
+          );
+          if (goal) return { target: goal.target, current: goal.current || 0 };
+        }
+      } catch (e) {
+        console.error("Failed to parse saved goals", e);
+      }
+    }
+
+    // If we reach here, check if there's any goal with the right type regardless of period
+    if (ministryGoalsData && ministryGoalsData.length > 0) {
+      const anyHoursGoal = ministryGoalsData.find((g) => g.type === "Hours");
+      if (anyHoursGoal)
+        return {
+          target: anyHoursGoal.target,
+          current: anyHoursGoal.current || 0,
+        };
+    }
+
+    // Default values if no saved goals
+    return {
+      target: 24, // Default to 24 hours monthly goal
+      current: stats.hours,
+    };
+  };
+
   // Re-calculate goal info when ministry goals data changes
   useEffect(() => {
     // Force re-render when ministry goals data changes
@@ -124,12 +168,22 @@ const MinistryStats = ({
     setForceUpdate((prev) => prev + 1);
 
     // Update current value in goal info when stats change
-    if (ministryGoalsData && ministryGoalsData.length > 0) {
-      const hoursGoal = ministryGoalsData.find((g) => g.type === "Hours");
-      if (hoursGoal) {
-        updateGoal(hoursGoal.id, { current: stats.hours || 0 });
+    const updateGoalData = async () => {
+      try {
+        if (ministryGoalsData && ministryGoalsData.length > 0) {
+          const hoursGoal = ministryGoalsData.find((g) => g.type === "Hours");
+          if (hoursGoal) {
+            // Add a small delay before updating goal
+            await new Promise((resolve) => setTimeout(resolve, 100));
+            await updateGoal(hoursGoal.id, { current: stats.hours || 0 });
+          }
+        }
+      } catch (error) {
+        console.error("Error updating goal data:", error);
       }
-    }
+    };
+
+    updateGoalData();
   }, [weeklyStats, monthlyStats, stats.hours, ministryGoalsData, updateGoal]);
 
   const goalInfo = getGoalInfo();
@@ -153,9 +207,15 @@ const MinistryStats = ({
 
       console.log("Saving ministry time entry:", timeEntry);
 
+      // Add a small delay before database operations
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
       // Save to Supabase
       const result = await addTimeEntry(timeEntry);
       console.log("Ministry time entry saved result:", result);
+
+      // Add another delay before updating goals
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       // Also update the ministry stats directly
       // This ensures the UI updates immediately without requiring a page refresh
@@ -163,7 +223,7 @@ const MinistryStats = ({
         const hoursGoal = ministryGoalsData.find((g) => g.type === "Hours");
         if (hoursGoal) {
           const newTotal = (hoursGoal.current || 0) + totalHours;
-          updateGoal(hoursGoal.id, { current: newTotal });
+          await updateGoal(hoursGoal.id, { current: newTotal });
         }
       }
 
@@ -178,6 +238,9 @@ const MinistryStats = ({
         type: selectedType,
         ministryType: selectedType, // Track which ministry type was done
       });
+
+      // Add a final delay before UI updates
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
       // Close modal and reset form
       setShowAddTimeModal(false);
@@ -241,50 +304,6 @@ const MinistryStats = ({
         ))}
       </View>
     );
-  };
-
-  // Function to get goal value and current progress
-  const getGoalInfo = () => {
-    // Always use monthly goals
-    // First try to get goal from Supabase data
-    if (ministryGoalsData && ministryGoalsData.length > 0) {
-      const goal = ministryGoalsData.find(
-        (g) => g.type === "Hours" && g.period === "monthly",
-      );
-      if (goal) return { target: goal.target, current: goal.current || 0 };
-    }
-
-    // Fallback to localStorage for backward compatibility
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      try {
-        const savedGoals = localStorage.getItem("ministryGoals");
-        if (savedGoals) {
-          const goals = JSON.parse(savedGoals);
-          const goal = goals.find(
-            (g) => g.type === "Hours" && g.period === "monthly",
-          );
-          if (goal) return { target: goal.target, current: goal.current || 0 };
-        }
-      } catch (e) {
-        console.error("Failed to parse saved goals", e);
-      }
-    }
-
-    // If we reach here, check if there's any goal with the right type regardless of period
-    if (ministryGoalsData && ministryGoalsData.length > 0) {
-      const anyHoursGoal = ministryGoalsData.find((g) => g.type === "Hours");
-      if (anyHoursGoal)
-        return {
-          target: anyHoursGoal.target,
-          current: anyHoursGoal.current || 0,
-        };
-    }
-
-    // Default values if no saved goals
-    return {
-      target: 24, // Default to 24 hours monthly goal
-      current: stats.hours,
-    };
   };
 
   return (

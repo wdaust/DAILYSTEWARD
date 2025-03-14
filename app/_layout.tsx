@@ -1,4 +1,7 @@
-import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import {
+  DefaultTheme,
+  ThemeProvider as NavigationThemeProvider,
+} from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
@@ -7,8 +10,14 @@ import { useEffect, useState } from "react";
 import "react-native-reanimated";
 import "react-native-webview";
 import "../global.css";
-import { Platform, View, ActivityIndicator } from "react-native";
+import {
+  Platform,
+  View,
+  ActivityIndicator,
+  useColorScheme,
+} from "react-native";
 import { AuthProvider, useAuth } from "../lib/auth";
+import { ThemeProvider, useTheme } from "../lib/theme";
 import { configureNotifications } from "../lib/notifications";
 import * as Notifications from "expo-notifications";
 
@@ -49,6 +58,12 @@ function AuthRedirect({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>;
+}
+
+// StatusBar that adapts to theme
+function StatusBarWithTheme() {
+  const { isDarkMode } = useTheme();
+  return <StatusBar style={isDarkMode ? "light" : "dark"} />;
 }
 
 export default function RootLayout() {
@@ -93,47 +108,52 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={DefaultTheme}>
-      <AuthProvider>
-        <AuthRedirect>
-          <View style={{ flex: 1 }}>
-            <Stack
-              screenOptions={({ route }) => ({
-                headerShown: !route.name.startsWith("tempobook"),
-                contentStyle: { flex: 1 },
-              })}
-            >
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="login" options={{ headerShown: false }} />
-              <Stack.Screen name="register" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="reset-password"
-                options={{ headerShown: false }}
-              />
-              <Stack.Screen
-                name="spiritual-progress"
-                options={{ headerShown: true }}
-              />
-              <Stack.Screen name="habits" options={{ headerShown: true }} />
-              <Stack.Screen
-                name="spiritual-tracker"
-                options={{ headerShown: true }}
-              />
-              <Stack.Screen
-                name="ministry-time"
-                options={{ headerShown: true }}
-              />
-              <Stack.Screen name="journal" options={{ headerShown: true }} />
-              <Stack.Screen
-                name="bible-reading"
-                options={{ headerShown: true }}
-              />
-              <Stack.Screen name="settings" options={{ headerShown: true }} />
-            </Stack>
-            <StatusBar style="auto" />
-          </View>
-        </AuthRedirect>
-      </AuthProvider>
+    <ThemeProvider>
+      <NavigationThemeProvider value={DefaultTheme}>
+        <AuthProvider>
+          <AuthRedirect>
+            <View style={{ flex: 1 }}>
+              <Stack
+                screenOptions={({ route }) => ({
+                  headerShown: !route.name.startsWith("tempobook"),
+                  contentStyle: { flex: 1 },
+                })}
+              >
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="login" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="register"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="reset-password"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
+                  name="spiritual-progress"
+                  options={{ headerShown: true }}
+                />
+                <Stack.Screen name="habits" options={{ headerShown: true }} />
+                <Stack.Screen
+                  name="spiritual-tracker"
+                  options={{ headerShown: true }}
+                />
+                <Stack.Screen
+                  name="ministry-time"
+                  options={{ headerShown: true }}
+                />
+                <Stack.Screen name="journal" options={{ headerShown: true }} />
+                <Stack.Screen
+                  name="bible-reading"
+                  options={{ headerShown: true }}
+                />
+                <Stack.Screen name="settings" options={{ headerShown: true }} />
+              </Stack>
+              <StatusBarWithTheme />
+            </View>
+          </AuthRedirect>
+        </AuthProvider>
+      </NavigationThemeProvider>
     </ThemeProvider>
   );
 }

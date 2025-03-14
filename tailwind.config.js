@@ -2,6 +2,7 @@
 module.exports = {
   content: ["./app/**/*.{js,jsx,ts,tsx}", "./components/**/*.{js,jsx,ts,tsx}"],
   presets: [require("nativewind/preset")],
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
@@ -44,6 +45,12 @@ module.exports = {
           800: "#1F2937",
           900: "#111827",
         },
+        dark: {
+          background: "#111827",
+          card: "#1F2937",
+          text: "#F9FAFB",
+          border: "#374151",
+        },
       },
       borderRadius: {
         xl: "1rem",
@@ -53,6 +60,7 @@ module.exports = {
       boxShadow: {
         card: "0 2px 10px rgba(0, 0, 0, 0.05)",
         nav: "0 -2px 10px rgba(0, 0, 0, 0.05)",
+        darkCard: "0 2px 10px rgba(0, 0, 0, 0.2)",
       },
     },
   },

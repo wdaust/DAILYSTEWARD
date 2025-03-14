@@ -104,12 +104,18 @@ export function useUserData<T, DBType = any>(
         return acc;
       }, {});
 
+      // Add a small delay to prevent stream closure issues
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       const { data: insertedData, error } = await supabase
         .from(tableName)
         .insert([{ ...cleanedData, user_id: user.id }])
         .select();
 
       if (error) throw error;
+
+      // Add another small delay after database operation
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Map the inserted data back to our interface
       const mappedData = insertedData ? insertedData.map(fromDB) : [];
@@ -168,6 +174,9 @@ export function useUserData<T, DBType = any>(
         {},
       );
 
+      // Add a small delay to prevent stream closure issues
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       const { data: updatedData, error } = await supabase
         .from(tableName)
         .update(cleanedUpdates)
@@ -176,6 +185,9 @@ export function useUserData<T, DBType = any>(
         .select();
 
       if (error) throw error;
+
+      // Add another small delay after database operation
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Map the updated data back to our interface
       const mappedData = updatedData ? updatedData.map(fromDB) : [];
@@ -218,6 +230,9 @@ export function useUserData<T, DBType = any>(
     if (!user) return { error: new Error("User not authenticated") };
 
     try {
+      // Add a small delay to prevent stream closure issues
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       const { error } = await supabase
         .from(tableName)
         .delete()
@@ -225,6 +240,9 @@ export function useUserData<T, DBType = any>(
         .eq("user_id", user.id); // Ensure user can only delete their own data
 
       if (error) throw error;
+
+      // Add another small delay after database operation
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
       // Update local state
       const updatedData = data.filter((item) => (item as any).id !== id);
